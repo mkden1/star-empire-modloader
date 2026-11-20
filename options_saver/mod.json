@@ -1,3 +1,5 @@
 {
-  "description": "Keeps options.txt saves off the render thread (options_saver.py)."
+  "description": "Keeps options.txt saves off the render thread (options_saver.py).",
+  "category": "speed",
+  "recommended": true
 }

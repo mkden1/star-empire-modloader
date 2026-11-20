@@ -2,5 +2,7 @@
   "description": "The Combat Log window and floating damage numbers, with shooter attribution through the shield-effects matcher.",
   "requires": [
     "damage_types"
-  ]
+  ],
+  "category": "features",
+  "recommended": true
 }

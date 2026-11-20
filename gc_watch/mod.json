@@ -1,3 +1,5 @@
 {
-  "description": "Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py)."
+  "description": "Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py).",
+  "category": "diagnostics",
+  "recommended": false
 }

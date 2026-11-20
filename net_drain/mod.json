@@ -1,3 +1,5 @@
 {
-  "description": "Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window."
+  "description": "Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window.",
+  "category": "speed",
+  "recommended": true
 }

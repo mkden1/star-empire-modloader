@@ -1,3 +1,5 @@
 {
-  "description": "Times every image the window loads on demand (asset_watch.py)."
+  "description": "Times every image the window loads on demand (asset_watch.py).",
+  "category": "diagnostics",
+  "recommended": false
 }

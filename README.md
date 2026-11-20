@@ -12,7 +12,8 @@ has to be merged into our work.
 ```
 mods/
   <name>/
-    mod.json            {"description": "...", "requires": ["other_mod"], "order": 0, "enabled": true}  (all optional but the description)
+    mod.json            {"description": "...", "requires": ["other_mod"], "category": "features", "recommended": true,
+                         "order": 0, "enabled": true}  (all optional but the description; see "The mod picker" below)
     Client.py.patch     changes to the dev's Client.py (one patch file per game file: <File>.py.patch)
     render_mixin.py.patch
     chat_suggest.py     the mod's own code ...
@@ -156,7 +157,7 @@ A hook in the dev's file should be a line or two; the code it calls is ordinary 
 
 Every mod folder has a `README.md`: a title, a one-sentence summary, then **What it does**, **Using it**, **Settings** (when
 there are any), **Needs** and **Under the hood**. **Needs** lists exactly what `mod.json` requires (a test in the
-development branch fails if they differ), so a mod picker can read the READMEs for names, summaries and requirements. The
+development branch fails if they differ), so the mod picker can read the READMEs for names, summaries and requirements. The
 list at the end of this file links to each one.
 
 Screenshots go in the mod's own `screenshots/` folder (PNG or JPG, a GIF for a short animation, each under about 300 KB)
@@ -164,8 +165,26 @@ and are shown in the README with a relative link, which GitHub displays on the b
 
     ![The Combat Log window](screenshots/combat-log.png)
 
-Put them in a **Screenshots** section after **Using it**. `modctl` copies neither the README nor the screenshots into a
-player's `mods/` folder: they are for choosing a mod, not for running it.
+Put them in a **Screenshots** section after **Using it**. The mod picker shows every picture in `screenshots/` (in file
+name order, scaled to its window) under the mod's summary, with the link's text as the caption, and leaves the
+**Screenshots** section itself out. Neither the picker nor `modctl` copies the README or the screenshots into a player's
+`mods/` folder: they are for choosing a mod, not for running it.
+
+## The mod picker
+
+The ready-to-run folder has a window (`Choose Mods.bat`, and by itself the first time the game is started) that lists the
+mods in `mods_available\`: a tick box for each, its README and screenshots beside it. It reads two keys of `mod.json`:
+
+* `"category"`: where the mod is listed: `features` (things you see and use), `speed` (invisible fixes for freezes and slow
+  saves), `recorders` (save game data to files), `diagnostics` (write troubleshooting information), `advanced`, or
+  `library` (code other mods need: not listed, only added when a mod that needs it is ticked). Missing = `features`.
+* `"recommended"`: `true` if the **Recommended** button ticks it (and it is ticked on the very first start). Missing =
+  `false`. Keep it for mods that only show something or fix something invisibly: nothing that aims, fires, targets, moves
+  the camera, sends commands to the server or records data, and nothing meant for troubleshooting.
+
+Ticking a mod also adds what it `requires`. **Apply** makes `mods\` match: it copies what is missing, removes what was
+unticked and refreshes copies that differ from `mods_available\`. Folders in `mods\` that are not in `mods_available\` are a
+player's own mods and are left alone, together with the mods they need.
 
 ## License
 
@@ -175,8 +194,8 @@ that code stays the developer's, and so does the game, which is not in this repo
 ## The ready-to-run folder
 
 The repository's `modloader` branch is the folder a player uses: the loader, the one launch file (which also runs the
-official launcher to update the game and checks every mod on each start), `modctl.bat` (copies a mod and the mods it
-needs from `mods_available\` into `mods\`), and a copy of the Python runtime and the libraries the game imports, so it
+official launcher to update the game and checks every mod on each start), the mod picker window (`Choose Mods.bat`;
+`modloader\modctl.bat` does the same on a console), and a copy of the Python runtime and the libraries the game imports, so it
 needs nothing installed but the game itself (which is not in it). `mods_available\` there is this branch. It is generated
 from the development branch by `custom_build\publish_branch.py`, which builds the package (`build_package.py`: the mods
 are put in a stripped copy of the game, with decoy libraries that fail if the game's own are ever used, and the patched

@@ -2,5 +2,7 @@
   "description": "Reads the weapon sound files ahead on a background thread (sound_prefetch.py).",
   "requires": [
     "core"
-  ]
+  ],
+  "category": "speed",
+  "recommended": true
 }

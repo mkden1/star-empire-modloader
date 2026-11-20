@@ -2,5 +2,7 @@
   "description": "The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py).",
   "requires": [
     "render_alias"
-  ]
+  ],
+  "category": "features",
+  "recommended": true
 }

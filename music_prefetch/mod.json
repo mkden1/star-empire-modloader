@@ -1,3 +1,5 @@
 {
-  "description": "Reads the next music track ahead and times every track load (music_prefetch.py)."
+  "description": "Reads the next music track ahead and times every track load (music_prefetch.py).",
+  "category": "speed",
+  "recommended": true
 }

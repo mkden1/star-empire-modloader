@@ -1,3 +1,5 @@
 {
-  "description": "Imports the damage_types helpers that the combat log uses."
+  "description": "Imports the damage_types helpers that the combat log uses.",
+  "category": "library",
+  "recommended": false
 }

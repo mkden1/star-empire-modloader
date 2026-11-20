@@ -2,5 +2,7 @@
   "description": "AUTO NAME button on the station rename dialog (station_auto_name.py).",
   "requires": [
     "core"
-  ]
+  ],
+  "category": "features",
+  "recommended": true
 }

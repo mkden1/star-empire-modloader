@@ -2,5 +2,7 @@
   "description": "Station prefabs also keep docking/management permissions, storage caps and trade entries (prefab_extras.py).",
   "requires": [
     "render_alias"
-  ]
+  ],
+  "category": "features",
+  "recommended": false
 }

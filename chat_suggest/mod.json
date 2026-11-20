@@ -1,3 +1,5 @@
 {
-  "description": "Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py)."
+  "description": "Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py).",
+  "category": "features",
+  "recommended": true
 }

@@ -1,3 +1,5 @@
 {
-  "description": "crash_log writes the client log from a background thread, so file I/O cannot stall the game."
+  "description": "crash_log writes the client log from a background thread, so file I/O cannot stall the game.",
+  "category": "speed",
+  "recommended": true
 }

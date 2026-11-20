@@ -1,3 +1,5 @@
 {
-  "description": "Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock) and which body a station is on (station_bodies). It changes nothing in the game by itself."
+  "description": "Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock) and which body a station is on (station_bodies). It changes nothing in the game by itself.",
+  "category": "library",
+  "recommended": false
 }

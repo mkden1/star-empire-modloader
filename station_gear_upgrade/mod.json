@@ -2,5 +2,7 @@
   "description": "UPGRADE GEAR and ADD 50 GAMMA / WORKERS buttons in the station prefab dialog (station_gear_upgrade.py, station_expansion.py).",
   "requires": [
     "render_alias"
-  ]
+  ],
+  "category": "features",
+  "recommended": false
 }

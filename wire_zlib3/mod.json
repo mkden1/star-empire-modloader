@@ -1,3 +1,5 @@
 {
-  "description": "The zlib3 wire format and SPACE_COMBAT_BATCH decoding (wire_compression.py, combat_batch.py)."
+  "description": "The zlib3 wire format and SPACE_COMBAT_BATCH decoding (wire_compression.py, combat_batch.py).",
+  "category": "advanced",
+  "recommended": false
 }

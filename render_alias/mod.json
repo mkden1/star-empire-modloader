@@ -1,3 +1,5 @@
 {
-  "description": "Names render_mixin as _render_mixin_module for the install blocks at the end of Client.py."
+  "description": "Names render_mixin as _render_mixin_module for the install blocks at the end of Client.py.",
+  "category": "library",
+  "recommended": false
 }

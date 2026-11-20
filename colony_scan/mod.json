@@ -2,5 +2,7 @@
   "description": "Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py).",
   "requires": [
     "core"
-  ]
+  ],
+  "category": "recorders",
+  "recommended": false
 }

@@ -1,3 +1,5 @@
 {
-  "description": "The squad / fighter roster HUD panel and its compact bar rows."
+  "description": "The squad / fighter roster HUD panel and its compact bar rows.",
+  "category": "features",
+  "recommended": true
 }

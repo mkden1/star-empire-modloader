@@ -1,3 +1,5 @@
 {
-  "description": "Logs what the server sends about station construction (construction_diag.py)."
+  "description": "Logs what the server sends about station construction (construction_diag.py).",
+  "category": "diagnostics",
+  "recommended": false
 }

@@ -1,3 +1,5 @@
 {
-  "description": "/stationprobe: ask for another station's logs, cargo and construction (station_probe.py)."
+  "description": "/stationprobe: ask for another station's logs, cargo and construction (station_probe.py).",
+  "category": "diagnostics",
+  "recommended": false
 }

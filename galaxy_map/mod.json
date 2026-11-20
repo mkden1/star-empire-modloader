@@ -3,5 +3,7 @@
   "requires": [
     "render_alias",
     "core"
-  ]
+  ],
+  "category": "features",
+  "recommended": true
 }
