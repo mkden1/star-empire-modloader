@@ -1,0 +1,21 @@
+# prefab_extras: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import prefab_extras # MOD: station prefabs keep docking/managem @@ order=10
+ from arena_client import ArenaClientMixin
++import prefab_extras  # MOD: station prefabs keep docking/management permissions, storage caps and trade entries; a contents viewer (prefab_extras.py)
+
+@@ _frame_events = prefab_extras.filter_events(self, _frame_events) @@ order=5
+             _frame_events = pygame.event.get()
++            _frame_events = prefab_extras.filter_events(self, _frame_events)   # MOD: the prefab viewer's wheel, and the end of a load wait
+
+@@ # MOD: station prefabs also keep the docking and management perm @@ order=8
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: station prefabs also keep the docking and management permissions, storage caps and Trade Manager entries,
++# re-sent after a load once the station took it, and show what a prefab holds in a panel beside the dialog
++# (prefab_extras.py). Wraps the window's prefab methods; the game's own code runs unchanged. Off with
++# STAR_EMPIRE_NO_PREFAB_EXTRAS=1.
++prefab_extras.install(SolarSystemWindow, _render_mixin_module)
++

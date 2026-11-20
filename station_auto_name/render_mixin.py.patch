@@ -1,0 +1,21 @@
+# station_auto_name: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ import station_auto_name # MOD: an AUTO NAME button on the stati @@ order=3
+                               territory_rgb)
++import station_auto_name  # MOD: an AUTO NAME button on the station rename dialog (station_auto_name.py)
+
+@@ # MOD: AUTO NAME, at the right-hand end of the button row: fills @@
+                     _rd["cancel_rect"]  = _rd_cn_r
++                    # MOD: AUTO NAME, at the right-hand end of the button row: fills the field with
++                    # "<planet> - <next number>" (station_auto_name.py); greyed out when the planet is not known.
++                    _rd["auto_rect"] = None
++                    if station_auto_name.enabled():
++                        _rd_an_ok = station_auto_name.suggestion(self, _rd) is not None
++                        _rd_an_s  = F(12, bold=True).render(station_auto_name.LABEL, True, _PS_VALUE)
++                        _rd_an_r  = pygame.Rect(0, _DY + self._s(96), _rd_an_s.get_width() + self._s(8), self._s(28))
++                        _rd_an_r.right = _DX + _DW - self._s(20)
++                        _control_button(
++                            screen, _rd_an_r, _rd_an_s, enabled=_rd_an_ok,
++                            hovered=_rd_an_r.collidepoint(pygame.mouse.get_pos()))
++                        if _rd_an_ok:
++                            _rd["auto_rect"] = _rd_an_r

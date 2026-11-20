@@ -1,0 +1,24 @@
+# range_rings: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import range_rings # MOD: range rings around the ship (range_rin @@ order=7
+ from arena_client import ArenaClientMixin
++import range_rings  # MOD: range rings around the ship (range_rings.py)
+
+@@ elif _cmd in ("ring", "rings"): @@ order=1
+                                                 "/roll is available in System and Squad chat.",
+                                                 (255, 180, 80))
++                                    elif _cmd in ("ring", "rings"):
++                                        # MOD: /ring, /rings - range rings around the ship (range_rings.py)
++                                        range_rings.handle_command(self, _msg)
+
+@@ # MOD: range rings around the ship - the selected weapon's reach @@ order=16
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: range rings around the ship - the selected weapon's reach and a ring at a distance you set (range_rings.py).
++# Drawn right after the game's own per-frame world overlay (_draw_turret_aim_overlay) from here, so the vanilla
++# draw code is untouched. Off with STAR_EMPIRE_NO_RANGE_RINGS=1.
++range_rings.install(SolarSystemWindow)
++
++

@@ -1,0 +1,125 @@
+# galaxy_map: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import galaxy_map_window # MOD: the galaxy map as a movable, res @@ order=3
+ from arena_client import ArenaClientMixin
++import galaxy_map_window  # MOD: the galaxy map as a movable, resizable window (galaxy_map_window.py)
+
+@@ _vis_sun_pos = layout.get("sun", {}) or {} @@
+                     _vis_planet_types.get(_vis_ptype, 0) + 1)
++            _vis_sun_pos = layout.get("sun", {}) or {}   # its own name: since v0.5.86 the game's `_vis_sun` is the sun COLOUR
+
+@@ # Sun world position — the reference point every gate's @@
+                 "moon_count":    _vis_moon_count,
++                # Sun world position — the reference point every gate's
++                # (and planet's) distance/bearing is measured against for
++                # route-time math (see galaxy_export.py).
++                "sun_x": float(_vis_sun_pos.get("x", 0.0)),
++                "sun_y": float(_vis_sun_pos.get("y", 0.0)),
+
+@@ _gm_cx, _gm_cy = galaxy_map_window.zoom_centre(self, screen) # M @@
+-        _gm_ww, _gm_wh = screen.get_size()
++        _gm_cx, _gm_cy = galaxy_map_window.zoom_centre(self, screen)   # MOD: the pan offset's origin (screen centre when full screen)
+
+@@ - (_gm_mx - self._galaxy_map_offset_x - _gm_cx) * _scale @@
+-            - (_gm_mx - self._galaxy_map_offset_x - _gm_ww // 2) * _scale
+-            - _gm_ww // 2
++            - (_gm_mx - self._galaxy_map_offset_x - _gm_cx) * _scale
++            - _gm_cx
+
+@@ - (_gm_my - self._galaxy_map_offset_y - _gm_cy) * _scale @@
+-            - (_gm_my - self._galaxy_map_offset_y - _gm_wh // 2) * _scale
+-            - _gm_wh // 2
++            - (_gm_my - self._galaxy_map_offset_y - _gm_cy) * _scale
++            - _gm_cy
+
+@@ _frame_events = galaxy_map_window.filter_events(self, _frame_eve @@ order=1
+             _frame_events = pygame.event.get()
++            _frame_events = galaxy_map_window.filter_events(self, _frame_events)   # MOD: the map window's move / resize / mode button
+
+@@ or galaxy_map_window.modal_open(self) # MOD: the map window leav @@
+-                            or self._galaxy_map_open
++                            or galaxy_map_window.modal_open(self)   # MOD: the map window leaves chat usable
+                         )
+                         if not _enter_blocked and not self._chat_panel.get("minimized"):
+
+@@ or galaxy_map_window.modal_open(self) # MOD: the map window leav @@
+-                            or self._galaxy_map_open
++                            or galaxy_map_window.modal_open(self)   # MOD: the map window leaves chat usable
+                         )
+                         if not _slash_blocked and not self._chat_panel.get("minimized"):
+
+@@ elif galaxy_map_window.keys_zoom_map(self): # MOD: the map windo @@
+-                        elif self._galaxy_map_open:
++                        elif galaxy_map_window.keys_zoom_map(self):   # MOD: the map window only when the pointer is over it
+
+@@ # Coalition/Territory/Survey strategic-view tabs sit in @@
+-                        # Coalition/Territory strategic-view tabs sit in the
+-                        # header and take precedence over canvas interaction.
++                        # Coalition/Territory/Survey strategic-view tabs sit in
++                        # the header and take precedence over canvas interaction.
+                         _gm_view_hit = next((
+
+@@ if (self._galaxy_map_view == "survey" @@
+                         if _gm_view_hit is not None:
++                            if (self._galaxy_map_view == "survey"
++                                    and _gm_view_hit != "survey"):
++                                # The comparison only makes sense while the
++                                # Survey indicators driving it are on screen.
++                                self._gm_survey_selected = set()
+
+@@ # VIEW SCANS: regenerate + open the local scan-data @@
+                         if _gm_fav_route_hit:
+                             continue
++                        # VIEW SCANS: regenerate + open the local scan-data
++                        # dashboard, focused on the currently-selected system
++                        # (if any). Never blocks the map — best-effort I/O.
++                        if (self._gm_view_scans_btn_rect and
++                                self._gm_view_scans_btn_rect.collidepoint(
++                                    event.pos)):
++                            self._gm_open_scan_dashboard()
++                            continue
+
+@@ galaxy_map_scans.survey_clear_click(...) @@
+                                 self._galaxy_map_info_rect.collidepoint(event.pos)):
+                             continue
++                        if galaxy_map_scans.survey_clear_click(self, event.pos):   # MOD: Survey comparison overlay: CLEAR ALL (galaxy_map_scans.py)
++                            continue
+
+@@ galaxy_map_scans.survey_ctrl_click(...) @@
+                         self._galaxy_map_csw_info_rect = None
++                        if galaxy_map_scans.survey_ctrl_click(self, event.pos):   # MOD: Survey multi-select: Ctrl/Cmd-click toggles a system (galaxy_map_scans.py)
++                            continue
+
+@@ or galaxy_map_window.modal_open(self) # MOD: the map window leav @@
+-            or self._galaxy_map_open
++            or galaxy_map_window.modal_open(self)   # MOD: the map window leaves the mouse aim usable
+
+@@ self._gm_survey_selected = set() @@
+         self._galaxy_map_view_tab_rects = {}
++        self._gm_survey_selected = set()
++        self._gm_survey_selection_rect = None
++        self._gm_survey_selection_clear_rect = None
+
+@@ self._gm_view_scans_btn_rect = None @@
+         self._gm_favorites_btn_rect = None
++        self._gm_view_scans_btn_rect = None
+
+@@ # MOD: the galaxy map as a small window you can move and resize, @@ order=13
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: the galaxy map as a small window you can move and resize, that stays open while you fly and when an
++# autopilot route is set from it (galaxy_map_window.py). The vanilla map code asks it for its geometry; the
++# rest is hooked from here. Off with STAR_EMPIRE_NO_MAP_WINDOW=1.
++galaxy_map_window.install(SolarSystemWindow, _render_mixin_module)
++
+
+@@ galaxy_map_scans.install(SolarSystemWindow) @@ order=101
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++import galaxy_map_scans  # MOD: the VIEW SCANS action on the window (galaxy_map_scans.py)
++galaxy_map_scans.install(SolarSystemWindow)
++

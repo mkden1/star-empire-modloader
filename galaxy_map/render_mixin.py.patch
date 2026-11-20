@@ -1,0 +1,275 @@
+# galaxy_map: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ import galaxy_map_window # MOD: the galaxy map as a movable, res @@ order=2
+                               territory_rgb)
++import galaxy_map_window  # MOD: the galaxy map as a movable, resizable window (galaxy_map_window.py)
+
+@@ # MOD: the panel's top-left (the full-screen margin, or the map  @@
+         is published by the caller every frame regardless."""
++        # MOD: the panel's top-left (the full-screen margin, or the map window's corner)
++        _PX, _PY = galaxy_map_window.origin(self, _PAD)
+
+@@ _PX + self._s(16), @@
+         self._floor_blit(_rail, ("__gmhdrrail__", self._uk),
+-                         _PAD + self._s(16),
+-                         _PAD + self._s(8), batch=_ov)
++                         _PX + self._s(16),
++                         _PY + self._s(8), batch=_ov)
+
+@@ _title_x = _PX + self._s(24) @@
+-        _title_x = _PAD + self._s(24)
++        _title_x = _PX + self._s(24)
+
+@@ _title_x, _PY + self._s(7), batch=_ov) @@
+-                         _title_x, _PAD + self._s(7), batch=_ov)
++                         _title_x, _PY + self._s(7), batch=_ov)
+
+@@ _PY + self._s(11), batch=_ov) @@
+             _title_x + _title.get_width() + self._s(7),
+-            _PAD + self._s(11), batch=_ov)
++            _PY + self._s(11), batch=_ov)
+
+@@ # MOD: the window / full-screen button sits left of the X; _btn_ @@
+                          close_r.x, close_r.y, batch=_ov)
++        # MOD: the window / full-screen button sits left of the X; _btn_left is where the right-hand controls start
++        _btn_left = galaxy_map_window.draw_toggle(self, _ov, _fnt_lbl, close_r)
++        _windowed = galaxy_map_window.windowed(self)
+
+@@ _hint_x = _btn_left - _hint.get_width() - 12 # MOD: left of the  @@
+-        _hint_x = close_r.x - _hint.get_width() - 12
+-        self._floor_blit(_hint, _hint_key,
+-                         _hint_x,
+-                         _PAD + _header_h - _hint.get_height() - self._s(4),
+-                         batch=_ov)
++        _hint_x = _btn_left - _hint.get_width() - 12   # MOD: left of the window button
++        if not _windowed or _hint_x >= _PX + self._s(16):   # MOD: a small window drops a hint that does not fit
++            self._floor_blit(_hint, _hint_key,
++                             _hint_x,
++                             _PY + _header_h - _hint.get_height() - self._s(4),
++                             batch=_ov)
+
+@@ if _windowed: @@
+-        _tabs_right = self._gm_draw_view_tabs(
+-            _ov, _fnt_hint,
+-            _title_x + _title.get_width() + self._s(18),
+-            _PAD + self._s(6), self._s(92), self._s(24))
++        if _windowed:
++            # MOD: the map window is for flying and finding systems: no Coalitions / Territory / Survey tabs
++            # and no VIEW SCANS (they are full-screen only).
++            self._galaxy_map_view_tab_rects = {}
++            self._gm_view_scans_btn_rect = None
++            _tabs_right = _title_x + _title.get_width() - self._s(2)
++        else:
++            _tabs_right = self._gm_draw_view_tabs(
++                _ov, _fnt_hint,
++                _title_x + _title.get_width() + self._s(18),
++                _PY + self._s(6), self._s(92), self._s(24))
+
+@@ _scans_w = self._s(120) @@
+         _fav_w = self._s(150)
++        _scans_w = self._s(120) if self._gm_scan_archive_available() else 0   # MOD: no VIEW SCANS without the scan_archive mod
+
+@@ _ov, _fnt_lbl, _PY, _tabs_right, # MOD: the box only uses this a @@
+-            _ov, _fnt_lbl, _PAD, _tabs_right,
+-            close_r.x, reserved_right=_fav_w + _control_gap)
++            _ov, _fnt_lbl, _PY, _tabs_right,   # MOD: the box only uses this as its y origin
++            _btn_left,
++            reserved_right=_fav_w + _control_gap + (
++                0 if _windowed or not _scans_w else _scans_w + _control_gap))
+
+@@ if not _windowed: # MOD @@
+             _fav_w, _search_rect.height)
++        if not _windowed and _scans_w:   # MOD
++            self._gm_draw_view_scans_button(
++                _ov, _fnt_lbl,
++                _search_rect.right + _control_gap + _fav_w + _control_gap,
++                _search_rect.y, _scans_w, _search_rect.height)
++
++    _GM_VIEW_TABS = (
++        ("coalitions", "COALITIONS"),
++        ("territory", "TERRITORY"),
++        ("survey", "SURVEY"),
++    )
+
+@@ """Draw the mutually-exclusive Coalition / Territory / Survey ta @@
+-        """Draw the mutually-exclusive Coalition and Territory map tabs."""
++        """Draw the mutually-exclusive Coalition / Territory / Survey tabs."""
+
+@@ for index, (key, label) in enumerate(self._GM_VIEW_TABS): @@
+-        for index, (key, label) in enumerate((
+-                ("coalitions", "COALITIONS"),
+-                ("territory", "TERRITORY"))):
++        for index, (key, label) in enumerate(self._GM_VIEW_TABS):
+
+@@ return int(x + len(self._GM_VIEW_TABS) * (w + gap)) @@
+-        return int(x + 2 * w + gap)
++        return int(x + len(self._GM_VIEW_TABS) * (w + gap))
+
+@@ # MOD: a dropdown opened from the map window never runs off the  @@
+-        rows   = self._gm_search_matches
++        # MOD: a dropdown opened from the map window never runs off the bottom of the screen
++        rows   = galaxy_map_window.fit_rows(
++            self, self._gm_search_matches, box.y + box.height + 2, box.height)
+
+@@ favorites = galaxy_map_window.fit_rows( # MOD: never off the bot @@
+-        favorites = list(getattr(self, "_gm_favorites", ()))
++        favorites = galaxy_map_window.fit_rows(   # MOD: never off the bottom of the screen (map window)
++            self, list(getattr(self, "_gm_favorites", ())),
++            button.bottom + self._s(2), button.height)
+
+@@ _PX, _PY = galaxy_map_window.origin(self, _PAD) # MOD: the panel @@
+-        _footer_top = _PAD + _ph - _footer_h
++        _PX, _PY = galaxy_map_window.origin(self, _PAD)   # MOD: the panel's top-left
++        _footer_top = _PY + _ph - _footer_h
+
+@@ _cb_x = _PX + _pw - _cb_w - self._s(22) @@
+         _cb_w = _CB_SZ + _CB_GAP + _cb_label.get_width()
+-        _cb_x = _PAD + _pw - _cb_w - self._s(22)
++        _cb_x = _PX + _pw - _cb_w - self._s(22)
+
+@@ _leg_x = _PX + self._s(16) @@
+-        _leg_x = _PAD + self._s(16)
++        _leg_x = _PX + self._s(16)
+
+@@ galaxy_map_window.draw_chrome(self, _ov) @@
+                 _leg_x, _footer_top + (_footer_h - _leg.get_height()) // 2,
+                 batch=_ov)
++        galaxy_map_window.draw_chrome(self, _ov)   # MOD: the map window's resize grip and hovered edges
+
+@@ # MOD: the panel is the full-screen margin box, or the movable w @@
+-        _pw   = win_w - _PAD * 2
+-        _ph   = win_h - _PAD * 2
+-        _plate = self._hud_plate_layers(
+-            _pw, _ph, _CHROME_H, chamfer_max=self._s(28))
++        # MOD: the panel is the full-screen margin box, or the movable window (galaxy_map_window.py)
++        _PX, _PY, _pw, _ph = galaxy_map_window.panel_geometry(self, win_w, win_h, _PAD)
++        _windowed = galaxy_map_window.windowed(self)
++        _plate = galaxy_map_window.plate_layers(self, _pw, _ph, _CHROME_H, self._s(28))
+
+@@ self._galaxy_map_panel_rect = pygame.Rect(_PX, _PY, _pw, _ph) @@
+-        self._galaxy_map_panel_rect = pygame.Rect(_PAD, _PAD, _pw, _ph)
++        self._galaxy_map_panel_rect = pygame.Rect(_PX, _PY, _pw, _ph)
+
+@@ _PX + _INSET, @@
+-            _PAD + _INSET,
+-            _PAD + _CHROME_H + _INSET,
++            _PX + _INSET,
++            _PY + _CHROME_H + _INSET,
+
+@@ _footer_y = _PY + _ph - _CHROME_H @@
+-        _footer_y = _PAD + _ph - _CHROME_H
++        _footer_y = _PY + _ph - _CHROME_H
+
+@@ if _windowed: @@
+-            screen.fill((2, 5, 12, 218))
+-            screen.blit(_plate["plate"], (_PAD, _PAD))
++            if _windowed:
++                # MOD: the window leaves the game undimmed and draws its plate with primitives (a baked plate
++                # per size, while it is being resized, would fill the texture atlas)
++                galaxy_map_window.draw_plate(
++                    screen, _PX, _PY, _pw, _ph, _CHROME_H, _plate["chamfer"])
++            else:
++                screen.fill((2, 5, 12, 218))
++                screen.blit(_plate["plate"], (_PX, _PY))
+
+@@ (_PX + 1, _footer_y), @@
+-                             (_PAD + 1, _footer_y),
+-                             (_PAD + _pw - 2, _footer_y))
++                             (_PX + 1, _footer_y),
++                             (_PX + _pw - 2, _footer_y))
+
+@@ (_PX + self._s(14), _footer_y), @@
+-                             (_PAD + self._s(14), _footer_y),
+-                             (_PAD + self._s(68), _footer_y), 2)
++                             (_PX + self._s(14), _footer_y),
++                             (_PX + self._s(68), _footer_y), 2)
+
+@@ _base_key = (win_w, win_h, self._uk, _canvas_key, _PX, _PY, _win @@
+-            _base_key = (win_w, win_h, self._uk, _canvas_key)
++            _base_key = (win_w, win_h, self._uk, _canvas_key, _PX, _PY, _windowed)   # MOD
+
+@@ if not _windowed: # MOD: the window leaves the game undimmed @@
+-                _base.blit(self._gm_dim_surf, (0, 0))
+-                _base.blit(_plate["plate"], (_PAD, _PAD))
++                if not _windowed:   # MOD: the window leaves the game undimmed
++                    _base.blit(self._gm_dim_surf, (0, 0))
++                _base.blit(_plate["plate"], (_PX, _PY))
+
+@@ (_PX + 1, _footer_y), @@
+-                                 (_PAD + 1, _footer_y),
+-                                 (_PAD + _pw - 2, _footer_y))
++                                 (_PX + 1, _footer_y),
++                                 (_PX + _pw - 2, _footer_y))
+
+@@ (_PX + self._s(14), _footer_y), @@
+-                                 (_PAD + self._s(14), _footer_y),
+-                                 (_PAD + self._s(68), _footer_y), 2)
++                                 (_PX + self._s(14), _footer_y),
++                                 (_PX + self._s(68), _footer_y), 2)
+
+@@ _PX + _pw - _plate["chamfer"] - _GM_X_W - self._s(5), @@
+-            _PAD + _pw - _plate["chamfer"] - _GM_X_W - self._s(5),
+-            _PAD + (_CHROME_H - _GM_X_H) // 2,
++            _PX + _pw - _plate["chamfer"] - _GM_X_W - self._s(5),
++            _PY + (_CHROME_H - _GM_X_H) // 2,
+
+@@ # MOD: the pan offset is measured from the middle of the map are @@
+-        MAP_CX = win_w // 2 + int(self._galaxy_map_offset_x)
+-        MAP_CY = win_h // 2 + int(self._galaxy_map_offset_y)
++        # MOD: the pan offset is measured from the middle of the map area (the screen centre when full screen)
++        _gm_cx, _gm_cy = galaxy_map_window.view_centre(self, win_w, win_h, _gm_canvas_rect)
++        MAP_CX = _gm_cx + int(self._galaxy_map_offset_x)
++        MAP_CY = _gm_cy + int(self._galaxy_map_offset_y)
+
+@@ if _gm_view in ("csw", "survey"): @@
+-        if _gm_view == "csw":
++        if _gm_view in ("csw", "survey"):
++            # Survey view's own per-node terra/scan indicators are the whole
++            # point of the tab -- an ownership/territory wash underneath
++            # would just be visual noise competing with them.
+
+@@ Survey fill: galaxy_map_render.terra_fill(...) @@
+-                    if is_range_hop:
++                    if _gm_view == "survey":
++                        _fill_col = _node_glow = galaxy_map_render.terra_fill(visited[sname])   # MOD: Survey traffic-light fill (galaxy_map_render.py)
++                    elif is_range_hop:
+
+@@ Survey rings: galaxy_map_render.survey_rings(...) @@
+                         r + _ownership_band_w + self._s(3) + _culture_w,
+                         _culture_w)
++                # MOD: Survey view's fully-scanned ring and multi-select ring (galaxy_map_render.py)
++                if _gm_view == "survey" and (is_current or is_visited):
++                    galaxy_map_render.survey_rings(self, _mn, visited.get(sname, {}), sname, inx, iny,
++                                                   r + _ownership_band_w, _gm_zoom)
+
+@@ # Survey view's Ctrl/Cmd-click multi-select comparison panel -- @@
++        # Survey view's Ctrl/Cmd-click multi-select comparison panel --
++        # only while there's something selected, so switching to an empty
++        # selection (or off the Survey tab, which itself clears it) drops
++        # straight back to no panel and no stale hit-rects.
++        if _gm_view == "survey" and self._gm_survey_selected:
++            self._gm_draw_survey_selection(_ov, _gm_canvas_rect)
++        else:
++            self._gm_survey_selection_rect = None
++            self._gm_survey_selection_clear_rect = None
++
+         if _gm_view == "territory":
+
+@@ or galaxy_map_window.modal_open(self)): # MOD: the map window le @@
+-                or self._galaxy_map_open):
++                or galaxy_map_window.modal_open(self)):   # MOD: the map window leaves the game usable
+             return False
+         interface = getattr(
+
+@@ or galaxy_map_window.modal_open(self)): # MOD: the map window le @@
+-                or self._galaxy_map_open):
++                or galaxy_map_window.modal_open(self)):   # MOD: the map window leaves the game usable
+             return False
+         controls = getattr(self, "_turret_control_rects", {})
+
+@@ galaxy_map_render.install(RenderMixin) at the end of the file @@ eof order=1
+         if not _direct_gpu_ui:
+             screen.blit(_surf, (0, 0))
++
++import galaxy_map_render  # MOD: the Survey view's drawing methods (galaxy_map_render.py)
++galaxy_map_render.install(RenderMixin)

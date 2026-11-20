@@ -1,0 +1,26 @@
+# zoom_floor: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ _COMET_REF_ZOOM = 0.05 # camera zoom the layout is calibrated to @@
+-    _COMET_REF_ZOOM  = 0.10          # camera zoom the layout is calibrated to — the
+-                                     # farthest zoom-out (matches the client's min zoom)
++    _COMET_REF_ZOOM  = 0.05          # camera zoom the layout is calibrated to — the
++                                     # farthest zoom-out (must match App.CAM_MIN_ZOOM;
++                                     # a bare class attribute can't read self.CAM_MIN_ZOOM
++                                     # directly, so this needs updating by hand if that
++                                     # constant ever changes again)
+
+@@ # Scale ambient shuttles gently with the solar-system zoom: tiny @@
+-        # Scale ambient shuttles gently with the solar-system zoom: tiny at the
+-        # 0.10 minimum, but restored to the detailed 18px hull at 0.40 maximum.
+-        # Clamping also keeps programmatic/out-of-range zoom values harmless.
+-        shuttle_zoom_t = max(0.0, min(1.0, (ctx.zoom_b - 0.10) / 0.30))
++        # Scale ambient shuttles gently with the solar-system zoom: tiny at
++        # the CAM_MIN_ZOOM minimum, but restored to the detailed 18px hull
++        # at the CAM_MAX_ZOOM maximum. Clamping also keeps programmatic/
++        # out-of-range zoom values harmless. Reads the live class constants
++        # (not a hardcoded copy of their old 0.10/0.40 values) so this
++        # can't silently drift out of sync if the zoom range ever changes
++        # again.
++        shuttle_zoom_t = max(0.0, min(1.0, (
++            (ctx.zoom_b - self.CAM_MIN_ZOOM)
++            / (self.CAM_MAX_ZOOM - self.CAM_MIN_ZOOM))))

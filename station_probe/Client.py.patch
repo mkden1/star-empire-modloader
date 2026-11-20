@@ -1,0 +1,24 @@
+# station_probe: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import station_probe # MOD: /stationprobe - ask for another stat @@ order=9
+ from arena_client import ArenaClientMixin
++import station_probe  # MOD: /stationprobe - ask for another station's activity log once, to test remote access (station_probe.py)
+
+@@ elif _cmd == "stationprobe": @@ order=2
+                                                 "/roll is available in System and Squad chat.",
+                                                 (255, 180, 80))
++                                    elif _cmd == "stationprobe":
++                                        # MOD: /stationprobe <id> - one PS_LOGS_REQUEST for that station (station_probe.py)
++                                        station_probe.handle_command(self, _msg)
+
+@@ # MOD: /stationprobe <station id> - sends the Logs tab's PS_LOGS @@ order=11
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: /stationprobe <station id> - sends the Logs tab's PS_LOGS_REQUEST for a station you are not docked at and reports
++# the answer, to find out whether the server answers it (station_probe.py). Wraps set_station_logs and the per-frame
++# _station_logs_tick; the Logs tab itself is untouched. Off with STAR_EMPIRE_NO_STATION_PROBE=1.
++station_probe.install(SolarSystemWindow)
++station_probe.install_protocol(ProtocolMixin)   # MOD: /stationprobe rename <id> reads PS_RENAME_STATION_OK; the game's handler still runs
++

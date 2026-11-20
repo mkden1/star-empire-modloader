@@ -1,0 +1,6 @@
+{
+  "description": "Station Logs tab: auto-backfill of older pages and capture of the rows (station_log_capture.py).",
+  "requires": [
+    "core"
+  ]
+}

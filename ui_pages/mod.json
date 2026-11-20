@@ -1,0 +1,6 @@
+{
+  "description": "ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not).",
+  "requires": [
+    "core"
+  ]
+}

@@ -1,0 +1,6 @@
+{
+  "description": "The scan archive: the planet/station/bot dashboard (scan_dashboard.py, scan_planner.py, scan_stations.py, bot_activity.py, station_overview.py), the galaxy export and their web assets. A library: it reads the files the recorder mods write (through core's scan_data.py), so it works with whichever of scan_capture, colony_scan, station_logs and station_profile you installed; the galaxy map's VIEW SCANS button opens it.",
+  "requires": [
+    "core"
+  ]
+}

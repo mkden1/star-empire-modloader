@@ -1,0 +1,12 @@
+# asset_watch: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: time every image the window loads on demand (asset_watch. @@ order=0
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: time every image the window loads on demand (asset_watch.py). Applied here, after the
++# class, so the vanilla _load_raw_image source is untouched.
++import asset_watch
++asset_watch.install(SolarSystemWindow)
++

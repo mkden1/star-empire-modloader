@@ -1,0 +1,13 @@
+# chat_suggest: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import chat_suggest # MOD: suggest system names (favourites firs @@ order=6
+ from arena_client import ArenaClientMixin
++import chat_suggest  # MOD: suggest system names (favourites first) while typing /ap in the chat (chat_suggest.py)
+
+@@ _frame_events = chat_suggest.filter_events(self, _frame_events)  @@ order=4
+             _frame_events = pygame.event.get()
++            _frame_events = chat_suggest.filter_events(self, _frame_events)   # MOD: the /ap suggestion list's Tab / arrows / clicks
+
+@@ chat_suggest.queue(self, _frame) # MOD: the /ap suggestion list  @@ order=0
+                 _managed_draw_wrapper = _profile_managed_draw
++            chat_suggest.queue(self, _frame)   # MOD: the /ap suggestion list joins the retained windows (a popover: its order among them does not matter)

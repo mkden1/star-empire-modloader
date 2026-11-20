@@ -1,0 +1,6 @@
+{
+  "description": "A snapshot of each player station when you undock (station_profile.py).",
+  "requires": [
+    "core"
+  ]
+}

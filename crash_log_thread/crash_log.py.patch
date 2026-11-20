@@ -1,0 +1,25 @@
+# crash_log_thread: patches to the game's crash_log.py (generated from the dev's v0.5.84 text)
+
+@@ import crash_log_thread: the log is written by a background thread @@
+ import threading
++import crash_log_thread  # MOD: the log is written by a background thread, not the thread that logs (crash_log_thread.py)
+
+@@ real_handlers = [] @@
+         datefmt="%Y-%m-%d %H:%M:%S")   # full date: crashes span days in a file
++    real_handlers = []
+
+@@ real_handlers.append(fh) @@
+-        root.addHandler(fh)
++        real_handlers.append(fh)
+
+@@ crash_log_thread.add_handlers(root, real_handlers) @@
+-        root.addHandler(ch)
++        real_handlers.append(ch)
++
++    crash_log_thread.add_handlers(root, real_handlers)   # MOD: the handlers are driven by a background thread (crash_log_thread.py)
+
+@@ for h in logging.getLogger().handlers: wait for the logging thread first @@
+     buffer."""
+-    for h in logging.getLogger().handlers:
++    crash_log_thread.drain()   # MOD: what is still queued is written before the crash hook reports "logged"
++    for h in crash_log_thread.real_handlers() + list(logging.getLogger().handlers):

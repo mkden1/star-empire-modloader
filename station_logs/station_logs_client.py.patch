@@ -1,0 +1,74 @@
+# station_logs: patches to the game's station_logs_client.py (generated from the dev's v0.5.84 text)
+
+@@ from station_log_capture import record_station_log_rows @@
++from station_log_capture import record_station_log_rows
++
++# Safety cap on unattended auto-backfill pages per station-open (see
++# _station_logs_tick) -- generous enough to cover any real station's full
++# history (200 * ~100 rows/page = ~20,000 entries), just a circuit breaker
++# against a server bug that never flips has_more to false.
++_AUTO_BACKFILL_PAGE_CAP = 200
+ 
+ 
+ class StationLogClientMixin:
+
+@@ focus=False, scroll=0, due=0, due_reset=True, error="", @@
+-                                 focus=False, scroll=0, due=0, error="", loaded=False,
+-                                 layout=None, search_rect=None, body=None, thumb=None,
+-                                 track=None, drag=None, max_scroll=0)
++                                 focus=False, scroll=0, due=0, due_reset=True, error="",
++                                 loaded=False, layout=None, search_rect=None, body=None,
++                                 thumb=None, track=None, drag=None, max_scroll=0, auto_pages=0)
+
+@@ # A due-retry can be either a genuine reset (first load, or a @@
+-                self._station_logs_request(reset=True)
++                # A due-retry can be either a genuine reset (first load, or a
++                # search whose debounce just elapsed) or just a continuation
++                # page that got deferred by the 0.3s send cooldown below --
++                # due_reset carries which one this is so a rate-limited
++                # auto-backfill page doesn't get its progress (before/rows)
++                # wiped by a spurious reset.
++                self._station_logs_request(reset=state["due_reset"])
++            return
++        # Auto-backfill: keep paging in the background until this station's
++        # full history is captured to disk (see station_log_capture), not
++        # just whatever a manual scroll would reach -- one visit to the tab
++        # is then enough, matching every other scan/export capture in this
++        # client (no separate "export" click needed). _station_logs_request
++        # already self-paces on its own 0.3s cooldown, so this is safe to
++        # call every tick.
++        if (state["more"] and not state["pending"]
++                and state["auto_pages"] < _AUTO_BACKFILL_PAGE_CAP):
++            self._station_logs_request()
+
+@@ state.update(loaded=True, due=ready_at, due_reset=reset) @@
+-            state.update(loaded=True, due=ready_at)
++            state.update(loaded=True, due=ready_at, due_reset=reset)
+
+@@ state.update(rows=[], before=None, more=False, scroll=0, layout= @@
+-            state.update(rows=[], before=None, more=False, scroll=0, layout=None)
++            state.update(rows=[], before=None, more=False, scroll=0, layout=None,
++                         auto_pages=0)
+
+@@ sent=time.monotonic(), due=0, loaded=True, error="", @@
+-                     sent=time.monotonic(), due=0, loaded=True, error="")
++                     sent=time.monotonic(), due=0, loaded=True, error="",
++                     auto_pages=state["auto_pages"] + 1)
+
+@@ incoming = data.get("rows", []) @@
+                     or data.get("station_id") != self._station_logs_active()
+                     or data.get("query", "") != state["query"]):
+                 return
++            incoming = data.get("rows", [])
++            record_station_log_rows(data.get("station_id"), incoming)
+
+@@ state["rows"] = (state["rows"] + [row for row in incoming @@
+-            state["rows"] = (state["rows"] + [row for row in data.get("rows", [])
++            state["rows"] = (state["rows"] + [row for row in incoming
+                                                    if row["id"] not in known])[:1000]
+             state.update(pending=False, more=bool(data.get("has_more")),
+
+@@ due_reset=True, error="", auto_pages=0) @@
+                      request=self._station_logs_serial, due=time.monotonic() + 0.35,
+-                     error="")
++                     due_reset=True, error="", auto_pages=0)

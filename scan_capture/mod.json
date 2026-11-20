@@ -1,0 +1,6 @@
+{
+  "description": "Passively records scans, inventories, skills, stations and bot state from server messages into scan_data/ (scan_logger.py and the other loggers).",
+  "requires": [
+    "core"
+  ]
+}

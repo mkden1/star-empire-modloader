@@ -1,0 +1,21 @@
+# combat_log: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ # Combat-log shooter attribution rides the same per-frame beat a @@
+         pulses = self._shield_effects.step(now)
++        # Combat-log shooter attribution rides the same per-frame beat as
++        # the shield-pulse matcher above (both read the same live
++        # projectile/beam state) -- called unconditionally, before the
++        # early return below, so a quiet frame with no visible pulses
++        # still drains pending attributions on schedule.  (getattr: the game's
++        # own shield tests draw with a bare RenderMixin that has no combat log.)
++        _resolve_attributions = getattr(
++            self, "_resolve_combat_log_attributions", None)
++        if _resolve_attributions is not None:
++            _resolve_attributions(now)
+
+@@ combat_log_render.install(RenderMixin) at the end of the file @@ eof
+         if not _direct_gpu_ui:
+             screen.blit(_surf, (0, 0))
++
++import combat_log_render  # MOD: the Combat Log's and the hitsplats' drawing methods (combat_log_render.py)
++combat_log_render.install(RenderMixin)

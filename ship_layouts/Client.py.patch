@@ -1,0 +1,58 @@
+# ship_layouts: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import ship_layouts_window # MOD: save a ship's fit under a name @@ order=4
+ from arena_client import ArenaClientMixin
++import ship_layouts_window  # MOD: save a ship's fit under a name and compare it with the ship you fly (ship_layouts_window.py)
+
+@@ self._menu_layouts_rect = None # MOD @@
+             self._menu_shop_rect = None
++            self._menu_layouts_rect = None   # MOD
+
+@@ # MOD: save / compare ship fits (ship_layouts_window.py) @@
+             ("market", "GLOBAL MARKET NETWORK", self._market_open, "", False),
++            # MOD: save / compare ship fits (ship_layouts_window.py)
++            ("layouts", "SHIP LAYOUTS", ship_layouts_window.is_open(self), "", False),
+
+@@ self._menu_layouts_rect = item_rects["layouts"] # MOD @@
+         self._menu_shop_rect = item_rects.get("shop")
++        self._menu_layouts_rect = item_rects["layouts"]   # MOD
+
+@@ _frame_events = ship_layouts_window.filter_events(self, _frame_e @@ order=2
+             _frame_events = pygame.event.get()
++            _frame_events = ship_layouts_window.filter_events(self, _frame_events)   # MOD: the Ship Layouts window's clicks and typing
+
+@@ elif _cmd in ("layouts", "layout"): @@ order=0
+                                                 "/roll is available in System and Squad chat.",
+                                                 (255, 180, 80))
++                                    elif _cmd in ("layouts", "layout"):
++                                        # MOD: /layouts - the Ship Layouts window (ship_layouts_window.py)
++                                        ship_layouts_window.handle_command(self, _msg)
+
+@@ if (self._menu_open @@
++                    if (self._menu_open
++                            and _gui_route_allows("menu_popup")
++                            and getattr(self, "_menu_layouts_rect", None)
++                            and self._menu_layouts_rect.collidepoint(event.pos)):
++                        # MOD: SHIP LAYOUTS (ship_layouts_window.py)
++                        self._menu_open = False
++                        ship_layouts_window.toggle(self)
++                        continue
+                     if (self._menu_open
+                             and _gui_route_allows("menu_popup")
+                             and not (self._menu_popup_rect and
+
+@@ ship_layouts_window.queue(self, _frame) # MOD: the Ship Layouts  @@ order=1
+                 _managed_draw_wrapper = _profile_managed_draw
++            ship_layouts_window.queue(self, _frame)   # MOD: the Ship Layouts window joins the retained windows
+
+@@ # MOD: the SHIP LAYOUTS window - save a ship's whole fit (gear,  @@ order=14
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: the SHIP LAYOUTS window - save a ship's whole fit (gear, plugins, turrets, stats) under a name and compare
++# it with the ship you are flying (ship_layouts_window.py). Counts the Ship Specs answers a save waits for and
++# keeps the flight keys quiet while a name is typed; globals(), not sys.modules[__name__] (run_client.py exec()s
++# this file as __main__). Off with STAR_EMPIRE_NO_SHIP_LAYOUTS=1.
++ship_layouts_window.install(SolarSystemWindow, _render_mixin_module, globals())
++

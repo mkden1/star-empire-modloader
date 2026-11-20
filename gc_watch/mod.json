@@ -1,0 +1,3 @@
+{
+  "description": "Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py)."
+}

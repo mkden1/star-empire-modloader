@@ -1,0 +1,6 @@
+{
+  "description": "Click diagnostics: one client-log line per left click saying what was in range (click_diag.py).",
+  "requires": [
+    "core"
+  ]
+}

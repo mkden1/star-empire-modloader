@@ -1,0 +1,84 @@
+# squad_hud: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ hide_bar_values: bool = False, @@
+                     instrument_style: bool = False,
++                    hide_bar_values: bool = False,
+
+@@ hide_bar_values: for a bar row, suppress the "val/max" text unle @@
+           panels never share row-key state.
++        hide_bar_values: for a bar row, suppress the "val/max" text unless
++          the mouse is currently over that specific row — used by compact
++          roster panels (squad/fighter HUDs) where a row is just a name and
++          two colour-coded bars, with the exact numbers a hover away rather
++          than always on screen. Off by default so every other bar-row
++          panel (Target, Ship Vitals, …) is unaffected.
+
+@@ # A blank label (compact roster panels — see @@
+-                    _ls = self._cached_label(_txt, _col, _bf)
+-                    _bar_text_h = _ls.get_height()
++                    # A blank label (compact roster panels — see
++                    # hide_bar_values) reserves NO text height at all,
++                    # rather than the font's line height for an empty
++                    # string, so the bar sits right at the row's top with
++                    # no leftover gap where a label would have been.
++                    _has_label = bool(_txt.strip())
++                    if _has_label:
++                        _ls = self._cached_label(_txt, _col, _bf)
++                        _bar_text_h = _ls.get_height()
++                        _bar_text_gap = self._s(1)
++                    else:
++                        _ls = None
++                        _bar_text_h = 0
++                        _bar_text_gap = 0
+
+@@ _bar_row_bot = ( @@
+-                    _bar_row_bot = _cy + _bar_text_h + self._s(1) + self._s(6) + self._s(6)
++                    _bar_row_bot = (
++                        _cy + _bar_text_h + _bar_text_gap
++                        + self._s(6) + self._s(6))
+
+@@ if _has_label: @@
+-                        screen.blit(_ls, (px + self._PNL_PAD, _sy))
+-                        # A bar's value changes as fast as its owner is hit:
+-                        # the bounded live-label cache, so those strings do
+-                        # not crowd the captions out of the shared one.
+-                        _vs = self._cached_live_label(
+-                            f"{_compact_number(_bval)}/{_compact_number(_bmax)}",
+-                            _GM_VALUE if instrument_style else self._PNL_DIM,
+-                            _bf)
+-                        screen.blit(_vs,
+-                                    (px + _draw_w - _vs.get_width() - self._PNL_PAD,
+-                                     _sy))
+-                        _bar_screen_y = _sy + _bar_text_h + self._s(1)
++                        if _has_label:
++                            screen.blit(_ls, (px + self._PNL_PAD, _sy))
++                        _show_value = True
++                        if hide_bar_values:
++                            _row_rect = pygame.Rect(
++                                px, _sy, _draw_w,
++                                _bar_row_bot - _bar_row_top)
++                            _show_value = _row_rect.collidepoint(
++                                pygame.mouse.get_pos())
++                        _bar_screen_y = _sy + _bar_text_h + _bar_text_gap
+
+@@ # Value text draws LAST — after the bar fill/frame @@
+                                              1, border_radius=3)
++                        # Value text draws LAST — after the bar fill/frame
++                        # — so it's always on top. For a labelled row this
++                        # sits on its own text line above the bar and
++                        # never overlapped anyway; for a blank-label
++                        # (compact roster) row the value shares the bar's
++                        # own row, so drawing it after the bar is what
++                        # keeps it legible instead of getting painted over.
++                        if _show_value:
++                            _vs = self._cached_live_label(
++                                f"{_compact_number(_bval)}/{_compact_number(_bmax)}",
++                                _GM_VALUE if instrument_style else self._PNL_DIM,
++                                _bf)
++                            screen.blit(_vs,
++                                        (px + _draw_w - _vs.get_width() - self._PNL_PAD,
++                                         _sy))
+
+@@ _cy += _bar_text_h + _bar_text_gap + self._s(6) + self._s(6) @@
+-                    _cy += _bar_text_h + self._s(1) + self._s(6) + self._s(6)
++                    _cy += _bar_text_h + _bar_text_gap + self._s(6) + self._s(6)

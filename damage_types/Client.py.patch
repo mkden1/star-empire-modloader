@@ -1,0 +1,7 @@
+# damage_types: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ from damage_types import (DEFAULT_DAMAGE_TYPE as _DEFAULT_DAMAGE @@ order=0
+ from projectile_lead import two_pass_lead as _two_pass_projectile_lead
++from damage_types import (DEFAULT_DAMAGE_TYPE as _DEFAULT_DAMAGE_TYPE,
++                          normalise_damage_type)
++

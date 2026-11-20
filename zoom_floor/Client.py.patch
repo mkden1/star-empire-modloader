@@ -1,0 +1,49 @@
+# zoom_floor: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # @@
+-    CAM_MIN_ZOOM = 0.10
++    #
++    # "can you make it so that I am able to zoom out more and see more of
++    # what is around me?" -- the player already starts at CAM_MIN_ZOOM (see
++    # __init__'s "default zoom (fully zoomed out)" below), so there was no
++    # existing headroom to unlock; the cap itself had to move. 0.05 restores
++    # this class's own docstring value above (the zoom line already read
++    # "0.05x ... 0.4x" — CAM_MIN_ZOOM had drifted to 0.10 without that
++    # comment being updated, so this both grants the request and makes the
++    # docstring accurate again). Since _cam_unit (render_mixin's minimap
++    # viewport sizing) and every zoom clamp all derive from this constant
++    # (confirmed: no other file hardcodes 0.10 independently), nothing else
++    # needs to change for the wider view to take effect everywhere.
++    # Halving the zoom doubles the visible span on each axis -- roughly 4x
++    # the visible AREA, so a crowded scene now renders more entities at
++    # once than before; worth knowing if a very busy system feels heavier
++    # zoomed all the way out.
++    CAM_MIN_ZOOM = 0.05
+
+@@ _ALL_ZOOM_BUCKETS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40] @@
+-        _ALL_ZOOM_BUCKETS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40]
+
+@@ # Clamped against the live class constants, not a hardcoded copy @@
+-        _cur_zb = max(0.10, min(0.40, _cur_zb))
++        # Clamped against the live class constants, not a hardcoded copy of
++        # their old 0.10/0.40 values -- otherwise a zoom at the new
++        # CAM_MIN_ZOOM floor would get snapped up to the stale 0.10 here,
++        # preloading (and briefly showing, until the real bucket finishes
++        # building) a sun/planet aura sized for the wrong zoom level.
++        _cur_zb = max(self.CAM_MIN_ZOOM, min(self.CAM_MAX_ZOOM, _cur_zb))
+
+@@ # object size — tighter when zoomed out (CAM_MIN_ZOOM) and full  @@
+-            # object size — tighter when zoomed out (zoom 0.10) and full when
+-            # zoomed in (zoom 0.40), instead of a fixed screen-pixel halo that
+-            # looks oversized on small, zoomed-out beams/ships.
+-            self._gl.glow_radius = max(0.5, min(1.0,
+-                                       0.5 + (self._zoom - 0.10) * (0.5 / 0.30)))
++            # object size — tighter when zoomed out (CAM_MIN_ZOOM) and full when
++            # zoomed in (CAM_MAX_ZOOM), instead of a fixed screen-pixel halo that
++            # looks oversized on small, zoomed-out beams/ships. Reads the live
++            # class constants rather than a hardcoded 0.10/0.30 copy of their
++            # old values, so this can't drift out of sync with the actual zoom
++            # range again.
++            self._gl.glow_radius = max(0.5, min(1.0, 0.5 + (
++                (self._zoom - self.CAM_MIN_ZOOM)
++                * (0.5 / (self.CAM_MAX_ZOOM - self.CAM_MIN_ZOOM)))))

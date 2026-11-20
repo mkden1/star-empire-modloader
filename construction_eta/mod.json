@@ -1,0 +1,7 @@
+{
+  "description": "Estimated time to complete for each Construction Bay project (construction_eta.py).",
+  "requires": [
+    "render_alias",
+    "core"
+  ]
+}

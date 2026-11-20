@@ -1,0 +1,7 @@
+{
+  "description": "What a selected Construction Bay blueprint costs against the station's stock (construction_tooltip.py).",
+  "requires": [
+    "render_alias",
+    "core"
+  ]
+}

@@ -1,0 +1,142 @@
+# ui_pages: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import capture_settings_panel # MOD: the ESC menu's Data Capture @@ order=1
+ from arena_client import ArenaClientMixin
++import ui_panels_page  # MOD: the ESC menu's UI Panels / Data Capture / Mods pages (ui_panels_page.py)
+
+@@ # "UI Panels" settings page -- opened from a button on the Optio @@
+         self._options_open:   bool  = False
++        # "UI Panels" settings page -- opened from a button on the Options
++        # panel (closes it first, same as ESC-menu -> Options does). Lets
++        # show/hide toggle each movable HUD panel that has no other way to
++        # get rid of it, including the two a live report found stuck on top
++        # of Ship Vitals after a window resize (see _draw_panel's own
++        # dragging-vs-resize-clamp fix for that half of the same report).
++        self._ui_panels_settings_open: bool = False
++        # MOD: "Data Capture" page (ESC menu -> Data Capture; capture_settings_panel.py).
++        # While it is open _ui_panels_settings_open is True too, so every "a menu page is
++        # open" test below already covers it; this flag only picks which page is drawn.
++        self._capture_settings_open: bool = False
++        # MOD: "Mods" page (ESC menu -> Mods; mods_page.py), opened and closed the same way.
++        self._mods_page_open: bool = False
+
+@@ "status_bars": {"x": 10, "y": 36, "minimized": False, "hidden":  @@
+-            "status_bars": {"x": 10,  "y": 36,  "minimized": False,
++            "status_bars": {"x": 10,  "y": 36,  "minimized": False, "hidden": False,
+
+@@ "inventory": {"x": 10, "y": 100, "minimized": False, "hidden": F @@
+-            "inventory":   {"x": 10,  "y": 100, "minimized": False,
++            "inventory":   {"x": 10,  "y": 100, "minimized": False, "hidden": False,
+
+@@ "target": {"x": 10, "y": 310, "minimized": False, "hidden": Fals @@
+-            "target":      {"x": 10,  "y": 310, "minimized": False,
++            "target":      {"x": 10,  "y": 310, "minimized": False, "hidden": False,
+
+@@ "turrets": {"x": 260, "y": 100, "minimized": False, "hidden": Fa @@
+-            "turrets":     {"x": 260, "y": 100, "minimized": False,
++            "turrets":     {"x": 260, "y": 100, "minimized": False, "hidden": False,
+
+@@ "fighter_control": {"x": 510, "y": 100, "minimized": False, "hid @@
+-            "fighter_control": {"x": 510, "y": 100, "minimized": False,
++            "fighter_control": {"x": 510, "y": 100, "minimized": False, "hidden": False,
+
+@@ "minimized": False, "hidden": False, @@
+-            "minimized": False,
++            "minimized": False, "hidden": False,
+
+@@ "panels" — dict of panel_id → {x, y, minimized, hidden, max_h} @@
+-          "panels"     — dict of panel_id → {x, y, minimized, max_h}
++          "panels"     — dict of panel_id → {x, y, minimized, hidden, max_h}
+
+@@ if "hidden" in pdata: p["hidden"] = bool(pdata["hidden"]) @@
+                 self._panels_unplaced.discard(pid)
+             if pid in self._panels:
+                 p = self._panels[pid]
+                 if "x"         in pdata: p["x"]         = int(pdata["x"])
+                 if "y"         in pdata: p["y"]         = int(pdata["y"])
++                if "hidden"    in pdata: p["hidden"]     = bool(pdata["hidden"])
+
+@@ "x": 260, "y": 100, "minimized": False, "hidden": False, @@
+                 self._panels.setdefault(pid, {
+-                    "x": 260, "y": 100, "minimized": False,
++                    "x": 260, "y": 100, "minimized": False, "hidden": False,
+
+@@ if "hidden" in pdata: p["hidden"] = bool(pdata["hidden"]) @@
+                     "scrollbar_dragging": False, "scrollbar_drag_oy": 0,
+                 })
+                 p = self._panels[pid]
+                 if "x"         in pdata: p["x"]         = int(pdata["x"])
+                 if "y"         in pdata: p["y"]         = int(pdata["y"])
+                 if "minimized" in pdata: p["minimized"] = bool(pdata["minimized"])
++                if "hidden"    in pdata: p["hidden"]     = bool(pdata["hidden"])
+
+@@ if "hidden" in chat_data: cp["hidden"] = bool(chat_data["hidden"]) @@
+             if "w"         in chat_data: cp["w"]         = int(chat_data["w"])
+             if "h"         in chat_data: cp["h"]         = int(chat_data["h"])
++            if "hidden"    in chat_data: cp["hidden"]    = bool(chat_data["hidden"])
+
+@@ "hidden": p.get("hidden", False), @@
+                 "minimized": p.get("minimized", False),
++                "hidden":    p.get("hidden", False),
+
+@@ "hidden": cp.get("hidden", False), @@
+             "minimized": cp.get("minimized", False),
++            "hidden":    cp.get("hidden", False),
+
+@@ if (not _enter_blocked @@
+-                        if not _enter_blocked and not self._chat_panel.get("minimized"):
++                        if (not _enter_blocked
++                                and not self._chat_panel.get("minimized")
++                                and not self._chat_panel.get("hidden")):
+
+@@ if (not _slash_blocked @@
+-                        if not _slash_blocked and not self._chat_panel.get("minimized"):
++                        if (not _slash_blocked
++                                and not self._chat_panel.get("minimized")
++                                and not self._chat_panel.get("hidden")):
+
+@@ elif self._ui_panels_settings_open: @@
++                        elif self._ui_panels_settings_open:
++                            self._ui_panels_settings_open = False
++                            self._capture_settings_open = False   # MOD
++                            self._mods_page_open = False   # MOD
+                         elif self._options_open:
+
+@@ # UI Panels... button -- same transition ESC-menu's @@
+                             self._open_announcements()
+                             _hit = True
++                        # UI Panels... button -- same transition ESC-menu's
++                        # own "Options" button makes: close this, open that.
++                        elif (self._opt_rects.get("uipanels")
++                              and self._opt_rects["uipanels"].collidepoint(_op)):
++                            self._options_open = False
++                            self._ui_panels_settings_open = True
++                            _hit = True
+
+@@ # ── UI Panels settings page click handling ───────────── @@
++                    # ── UI Panels settings page click handling ─────────────
++                    elif (self._ui_panels_settings_open
++                          and _gui_route_allows("escape_menu")):
++                        ui_panels_page.click(self, event.pos)   # MOD: the UI PANELS page and the Data Capture / Mods pages (ui_panels_page.py)
++                        continue
+                     if (self._esc_menu_open
+
+@@ elif ui_panels_page.esc_click(...): Data Capture and Mods buttons @@
++                        elif ui_panels_page.esc_click(self, _ep):   # MOD: the Data Capture and Mods pages (ui_panels_page.py)
++                            _hit = True
+                         elif self._esc_btn_rects.get("redeem") and self._esc_btn_rects["redeem"].collidepoint(_ep):
+
+@@ "x": 260, "y": 100, "minimized": False, "hidden": False, @@
+                 _tp_panel = self._panels.setdefault('turrets', {
+-                    "x": 260, "y": 100, "minimized": False,
++                    "x": 260, "y": 100, "minimized": False, "hidden": False,
+
+@@ self._managed_chat_rect, @@
+-                self._managed_chat_rect, visible=lambda: self._ui_editor is None)
++                self._managed_chat_rect,
++                visible=lambda: self._ui_editor is None and not self._chat_panel.get("hidden"))
+
+@@ lambda: (self._esc_menu_open or self._options_open @@
+-                lambda: self._esc_menu_open or self._options_open,
++                lambda: (self._esc_menu_open or self._options_open
++                         or self._ui_panels_settings_open),

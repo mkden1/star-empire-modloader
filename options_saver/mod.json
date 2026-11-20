@@ -1,0 +1,3 @@
+{
+  "description": "Keeps options.txt saves off the render thread (options_saver.py)."
+}

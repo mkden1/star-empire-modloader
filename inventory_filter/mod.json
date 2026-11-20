@@ -1,0 +1,6 @@
+{
+  "description": "FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py).",
+  "requires": [
+    "render_alias"
+  ]
+}

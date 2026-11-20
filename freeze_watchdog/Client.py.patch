@@ -1,0 +1,20 @@
+# freeze_watchdog: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ from freeze_watchdog import tick as _watchdog_tick # MOD: see fr @@ order=0
+ from arena_client import ArenaClientMixin
++from freeze_watchdog import tick as _watchdog_tick  # MOD: see freeze_watchdog.py
+
+@@ _watchdog_tick("app") # MOD: heartbeat for freeze_watchdog @@
+     def _poll_network(self):
++        _watchdog_tick("app")  # MOD: heartbeat for freeze_watchdog
+
+@@ _watchdog_tick("render") # MOD: heartbeat for freeze_watchdog @@
+             self._profiler.frame_end()   # before tick() so sleep isn't counted
++            _watchdog_tick("render")  # MOD: heartbeat for freeze_watchdog
+
+@@ import freeze_watchdog # MOD: stack dump into the log when a thr @@
+     _log_path = crash_log.install()
++    import freeze_watchdog  # MOD: stack dump into the log when a thread stalls
++    import capture_settings  # MOD: the Data Capture page / capture_settings.json
++    if capture_settings.enabled("freeze_watchdog"):
++        freeze_watchdog.start()

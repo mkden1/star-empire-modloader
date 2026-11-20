@@ -1,0 +1,32 @@
+# combat_log: patches to the game's shield_effects.py (generated from the dev's v0.5.84 text)
+
+@@ # Separate queue from _pending_hits: a caller (the combat log) @@
+         self._diagnostics: Counter[str] = Counter()
++        # Separate queue from _pending_hits: a caller (the combat log)
++        # wants a resolved OWNER, not a screen-space pulse, and on its own
++        # schedule (once per frame via resolve_attributions), independent
++        # of whatever step()/the shield-pulse pipeline is doing. Matching
++        # a projectile/beam here never marks it .claimed -- this is a
++        # read-only lookup that must not steal a candidate the shield-pulse
++        # matcher's own pending hit still needs.
++        self._pending_attributions: deque[_PendingAttribution] = deque(
++            maxlen=_MAX_PENDING_HITS)
++        self._attribution_sequence = 0
+
+@@ self._pending_attributions.clear() @@
+             self._diagnostics.clear()
++            self._pending_attributions.clear()
++            self._attribution_sequence = 0
+
+@@ "pending_attributions": len(self._pending_attributions), @@
+                 "active_pulses": len(self._pulses),
++                "pending_attributions": len(self._pending_attributions),
+
+@@ shield_attribution.install(ShieldEffectState) at the end of the file @@ eof
+     "ShieldEffectState",
+     "ShieldPulseDraw",
+     "shows_shield_ripples",
+ ]
++
++import shield_attribution  # MOD: the Combat Log's shooter lookup (shield_attribution.py)
++shield_attribution.install(ShieldEffectState)

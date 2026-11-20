@@ -1,0 +1,33 @@
+# squad_hud: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # max_h caps the panel at ~4-5 visible entries before it scrolls @@
+                             "scrollbar_dragging": False, "scrollbar_drag_oy": 0},
++            # max_h caps the panel at ~4-5 visible entries before it scrolls
++            # (see _draw_panel's generic max_h scrolling) — a full squad (10)
++            # or a full drone+fighter roster (up to 14) would otherwise grow
++            # tall enough to run off-screen.
++            "squad_hud":   {"x": 10,  "y": 520, "minimized": False, "hidden": False,
++                            "dragging": False, "drag_ox": 0, "drag_oy": 0,
++                            "max_h": 220, "max_w": None, "scroll": 0,
++                            "resize_dragging": False, "resize_drag_oy": 0,
++                            "resize_right_dragging": False, "resize_right_drag_ox": 0,
++                            "resize_corner_dragging": False,
++                            "scrollbar_dragging": False, "scrollbar_drag_oy": 0},
++            "fighter_hud": {"x": 10,  "y": 660, "minimized": False, "hidden": False,
++                            "dragging": False, "drag_ox": 0, "drag_oy": 0,
++                            "max_h": 220, "max_w": None, "scroll": 0,
++                            "resize_dragging": False, "resize_drag_oy": 0,
++                            "resize_right_dragging": False, "resize_right_drag_ox": 0,
++                            "resize_corner_dragging": False,
++                            "scrollbar_dragging": False, "scrollbar_drag_oy": 0},
+             # The running timed boosters (boosters_hud), shown only while one runs.
+
+@@ squad_hud.draw_rosters(...) - the SQUAD and FIGHTERS panels @@
++            squad_hud.draw_rosters(self, _frame, entities, _inv_fnt_hdr, _inv_fnt_body,
++                                   _INV_HDR_H, _INV_ROW_H, _PNL_DIM)   # MOD: the roster panels (squad_hud.py)
++
+             self._profiler.mark("hotbar")
+
+@@ import squad_hud @@ order=104
+ from arena_client import ArenaClientMixin
++import squad_hud  # MOD: the squad / fighter roster panels (squad_hud.py)

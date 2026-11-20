@@ -1,0 +1,22 @@
+# station_gear_upgrade: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import station_gear_upgrade # MOD: UPGRADE GEAR in the station p @@ order=11
+ from arena_client import ArenaClientMixin
++import station_gear_upgrade  # MOD: UPGRADE GEAR in the station prefab dialog - swap fitted gear for higher marks from your hold (station_gear_upgrade.py)
+
+@@ _frame_events = station_gear_upgrade.filter_events(self, _frame_ @@ order=6
+             _frame_events = pygame.event.get()
++            _frame_events = station_gear_upgrade.filter_events(self, _frame_events)   # MOD: the UPGRADE GEAR button's press, and its step timeouts
+
+@@ # MOD: UPGRADE GEAR button in the station prefab dialog: swaps t @@ order=9
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: UPGRADE GEAR button in the station prefab dialog: swaps the station's fitted marked gear for higher marks from
++# your hold (deposit, equip, take the old one back), one command at a time, each waiting for the station's cargo push
++# (station_gear_upgrade.py). Wraps set_ps_station_cargo and _draw_ps_prefab_dialog, and reads a refused fit from
++# _on_ps_equip_module_result; the game's own code runs unchanged. Off with STAR_EMPIRE_NO_GEAR_UPGRADE=1.
++station_gear_upgrade.install(SolarSystemWindow, _render_mixin_module)
++station_gear_upgrade.install_protocol(ProtocolMixin)
++

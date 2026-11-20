@@ -1,0 +1,7 @@
+{
+  "description": "The galaxy map as a movable, resizable window (galaxy_map_window.py), the Survey view and the VIEW SCANS button (which needs the scan_archive mod and is left out without it).",
+  "requires": [
+    "render_alias",
+    "core"
+  ]
+}

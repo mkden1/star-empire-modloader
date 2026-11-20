@@ -1,0 +1,17 @@
+# pump_watch: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import pump_watch # MOD: times pygame.event.get() in the render  @@ order=2
+ from arena_client import ArenaClientMixin
++import pump_watch  # MOD: times pygame.event.get() in the render loop
+
+@@ # MOD: the game has no gamepad support, but SDL runs joystick/HI @@ order=13
+ from arena_client import ArenaClientMixin
++# MOD: the game has no gamepad support, but SDL runs joystick/HID device detection inside every
++# pygame.event.get(), and on this machine that froze the whole client for 0.4-3.5 s at a time
++# (evidence in pump_watch.py). Hooked onto pygame.init itself, not added to App.start, because
++# vanilla's own tests exec App.start in a bare namespace.
++pump_watch.install_init_hook()
+
+@@ _frame_events = pump_watch.get_events() # MOD: logs an event pum @@ order=0
+-            _frame_events = pygame.event.get()
++            _frame_events = pump_watch.get_events()   # MOD: logs an event pump that blocks (pump_watch.py)

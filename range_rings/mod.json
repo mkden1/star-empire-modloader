@@ -1,0 +1,6 @@
+{
+  "description": "Range rings around the ship: the weapon's reach and a configurable ring (range_rings.py).",
+  "requires": [
+    "core"
+  ]
+}

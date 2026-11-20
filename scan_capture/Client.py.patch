@@ -1,0 +1,10 @@
+# scan_capture: patches to the game's Client.py
+
+@@ planet_scan_capture.install(ProtocolMixin) @@ order=103
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++import planet_scan_capture  # MOD: record each planet scan before the game shows it (planet_scan_capture.py)
++planet_scan_capture.install(ProtocolMixin)
++

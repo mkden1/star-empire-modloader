@@ -1,0 +1,28 @@
+# wire_zlib3: patches to the game's protocol.py (generated from the dev's v0.5.84 text)
+
+@@ from combat_batch import EVENT_COMMANDS, decode_combat_batch @@
+ from station_glide import carry_station_glide, note_station_move
++from combat_batch import EVENT_COMMANDS, decode_combat_batch
+
+@@ if not isinstance(s, (str, bytes, bytearray)): @@
++    if not isinstance(s, (str, bytes, bytearray)):
++        return s
+     if _orjson is not None:
+
+@@ "SPACE_COMBAT_BATCH ": self._on_space_combat_batch, @@
+                 "SOLAR_SYSTEM_DATA ":    self._on_solar_system_data,
++                "SPACE_COMBAT_BATCH ":  self._on_space_combat_batch,
+
+@@ self._on_space_fire_snd(frame["f"]) @@
+-            self._on_space_fire_snd(
+-                json.dumps(frame["f"], separators=(",", ":")))
++            self._on_space_fire_snd(frame["f"])
+
+@@ combat_batch_handler.install(ProtocolMixin) at the end of the file @@ eof
+             if ok:
+                 self._log(f"Redeemed code {code}.", C["success"])
+             else:
+                 self._log(f"Redeem failed ({code}): {reason}", C["danger"])
++
++import combat_batch_handler  # MOD: the SPACE_COMBAT_BATCH handler (combat_batch_handler.py)
++combat_batch_handler.install(ProtocolMixin)

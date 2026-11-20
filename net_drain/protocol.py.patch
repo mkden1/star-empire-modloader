@@ -1,0 +1,32 @@
+# net_drain: patches to the game's protocol.py (generated from the dev's v0.5.84 text)
+
+@@ # Per-handler timing, active only while /profiler is running @@
+-                if prefix == "SPACE_STATE ":
++                # Per-handler timing, active only while /profiler is running
++                # (near-zero cost otherwise — one None check). network_drain /
++                # network_queue_wait showed a single _poll_network() call
++                # taking up to ~580ms even after capping how many *items* it
++                # will drain per frame — proof at least one individual
++                # message's own handler is slow, not just backlog volume.
++                # This attributes that time to the specific command keyword
++                # so a repeat capture names the culprit instead of just
++                # confirming "something is slow" again.
++                #
++                # SPACE_COMBAT_BATCH (v0.5.00) needs arrival_time the same
++                # way SPACE_STATE already did -- kept as its own flag so
++                # BOTH the profiled and un-profiled paths below stay in
++                # sync with whichever prefixes the dispatch table actually
++                # wires that way, instead of duplicating the tuple check.
++                _prof = self._network_profile()
++                _needs_arrival_time = prefix in (
++                    "SPACE_STATE ", "SPACE_COMBAT_BATCH ")
++                if _prof is not None:
++                    _h_t0 = time.perf_counter()
++                    if _needs_arrival_time:
++                        handler(payload, arrival_time)
++                    else:
++                        handler(payload)
++                    _prof.record_external(
++                        f"handler:{prefix.strip()}",
++                        time.perf_counter() - _h_t0)
++                elif _needs_arrival_time:

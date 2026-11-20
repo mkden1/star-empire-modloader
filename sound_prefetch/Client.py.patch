@@ -1,0 +1,15 @@
+# sound_prefetch: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: read the weapon sound files ahead on a background thread  @@ order=1
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: read the weapon sound files ahead on a background thread and time every sound load
++# (sound_prefetch.py). A first-ever weapon sound is read from disk on the message thread while it holds
++# self._lock (set_projectiles), which froze the whole game for 5.4 s on 2026-10-22. Hooked from here, like
++# the others, so Audio.py's own source stays vanilla.
++import Audio as _audio_module
++import sound_prefetch
++sound_prefetch.install(_audio_module)
++

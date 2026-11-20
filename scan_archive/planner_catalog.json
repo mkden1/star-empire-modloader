@@ -1,0 +1,83 @@
+{
+  "version": 1,
+  "about": [
+    "The catalogue behind the scan archive's PLANNER tab: which station kits, extractors and gear exist, and what each costs to make.",
+    "cost is null until it has been entered: the planner then lists the item as 'cost not entered' instead of treating it as free. A cost is an object of resource id -> amount, e.g. {\"metal\": 500, \"microchips\": 20}; an empty object {} means genuinely free. 'manhours' and 'credits' are resources like any other. For something bought from an AI station the cost IS the buy price in credits.",
+    "Gear can be made two ways. With upgrade_from it is an upgrade: its blueprint is run on upgrade_qty of the item named, which is used up, and cost is that ONE step; the planner adds up the whole chain (a Mk III = its own step + the Mk II step + the bought Mk I). With a blueprint but no upgrade_from it is built from scratch and cost is everything it takes. With neither it is bought and cost is its price.",
+    "Blueprints are reusable (Uses: infinity), so they are never counted as used up. blueprint_price, when known, is what buying that blueprint costs once; the planner can add it to the totals if you tick the option.",
+    "per_day is how much of the resource ONE extractor produces per day (the 'Production' line on its item tooltip: promethium 1,440 = 1 per 60 s; the rare resources copper/gold/titanium/oil 8.64 = 1 per 10,000 s; wood cutter 8,640; advanced 17,280; industrial 25,920 = 3 per 10 s). per_day_inferred: true marks a rate assumed rather than read off an item: the basic metal drill, silicon drill and harvester are assumed to be 8,640, the figure the basic wood cutter shows (the basic : advanced : industrial ladder is 1 : 2 : 3 for every resource seen).",
+    "tech / size are what the item shows in an AI station's shop or a captured station's item stats (Tech = the tier players call 't9'). null = not seen yet.",
+    "kind says where a kit goes: planet (attached to a planet, up to 3 per planet), moon (1 per moon), unattached (free-standing in a system: no extractors, used for defence). station_slots is the character station-slot budget one station uses: 9 for a planet-side kit (colony_tool station_slot_cost) and for an unattached kit (the player: same as attached), 2 for the lunar kit. It is null where not supplied; the planner then says so rather than counting it as 0.",
+    "Sources (2026-10-12): the player's screenshots of the AI station's shop ('Station' tab: station kits and extractors; gear tab: Mk I gear; blueprints tab: Layered Plating) and of the blueprints' item tooltips (upgrade and Layered Plating costs). Mk II = T6 and Mk III = T9 per the player. The Mk II names are known from the client; the sensor Mk II, every Mk III key and attached_station_kit_ii are inferred from the same naming pattern (the labels are exact). The Dominion Station and the (Small) Central Commands are not in the planner.",
+    "Only the keys and items listed here appear in the planner. To add an item or a tier, add an entry; nothing else needs to change."
+  ],
+  "kits": [
+    {"key": "attached_station_kit_i", "label": "Attached Station Kit I", "kind": "planet", "tech": 3, "size": 6, "station_slots": 9, "cost": {"credits": 100000}, "acquire": "bought from an AI station"},
+    {"key": "attached_station_kit_ii", "label": "Attached Station Kit II", "kind": "planet", "tech": 6, "size": 6, "station_slots": 9, "cost": {"credits": 500000}, "acquire": "bought from an AI station"},
+    {"key": "attached_station_kit_iii", "label": "Attached Station Kit III", "kind": "planet", "tech": 9, "size": 6, "station_slots": 9, "cost": {"credits": 2500000}, "acquire": "bought from an AI station"},
+    {"key": "lunar_station_kit", "label": "Lunar Station Kit I", "kind": "moon", "tech": 9, "size": 6, "station_slots": 2, "cost": {"credits": 2500000}, "acquire": "bought from an AI station"},
+    {"key": "unattached_station_kit_i", "label": "Unattached Station Kit I", "kind": "unattached", "tech": 3, "size": 6, "station_slots": 9, "cost": {"credits": 100000}, "acquire": "bought from an AI station"},
+    {"key": "unattached_station_kit_ii", "label": "Unattached Station Kit II", "kind": "unattached", "tech": 6, "size": 6, "station_slots": 9, "cost": {"credits": 500000}, "acquire": "bought from an AI station"},
+    {"key": "unattached_station_kit_iii", "label": "Unattached Station Kit III", "kind": "unattached", "tech": 9, "size": 6, "station_slots": 9, "cost": {"credits": 2500000}, "acquire": "bought from an AI station"}
+  ],
+  "extractors": {
+    "metal_ore": [
+      {"key": "metal_drill", "label": "Metal Drill", "tier": "basic", "tech": 0, "size": 5, "cost": {"credits": 25000}, "acquire": "bought from an AI station", "per_day": 8640, "per_day_inferred": true},
+      {"key": "advanced_metal_drill", "label": "Advanced Metal Drill", "tier": "advanced", "tech": 6, "size": 5, "cost": {"credits": 500000}, "acquire": "bought from an AI station", "per_day": 17280},
+      {"key": "industrial_metal_drill", "label": "Industrial Metal Drill", "tier": "industrial", "tech": 9, "size": 5, "cost": {"credits": 1000000}, "acquire": "bought from an AI station", "per_day": 25920}
+    ],
+    "silicon": [
+      {"key": "silicon_drill", "label": "Silicon Drill", "tier": "basic", "tech": 0, "size": 5, "cost": {"credits": 25000}, "acquire": "bought from an AI station", "per_day": 8640, "per_day_inferred": true},
+      {"key": "advanced_silicon_drill", "label": "Advanced Silicon Drill", "tier": "advanced", "tech": 6, "size": 5, "cost": {"credits": 500000}, "acquire": "bought from an AI station", "per_day": 17280},
+      {"key": "industrial_silicon_drill", "label": "Industrial Silicon Drill", "tier": "industrial", "tech": 9, "size": 5, "cost": {"credits": 1000000}, "acquire": "bought from an AI station", "per_day": 25920}
+    ],
+    "wood": [
+      {"key": "wood_cutter", "label": "Wood Cutter", "tier": "basic", "tech": 0, "size": 4, "cost": {"credits": 25000}, "acquire": "bought from an AI station", "per_day": 8640},
+      {"key": "advanced_wood_cutter", "label": "Advanced Wood Cutter", "tier": "advanced", "tech": 6, "size": 4, "cost": {"credits": 500000}, "acquire": "bought from an AI station", "per_day": 17280},
+      {"key": "industrial_wood_cutter", "label": "Industrial Wood Cutter", "tier": "industrial", "tech": 9, "size": 4, "cost": {"credits": 1000000}, "acquire": "bought from an AI station", "per_day": 25920}
+    ],
+    "space_corn": [
+      {"key": "harvester", "label": "Harvester", "tier": "basic", "tech": 0, "size": 4, "cost": {"credits": 25000}, "acquire": "bought from an AI station", "per_day": 8640, "per_day_inferred": true},
+      {"key": "advanced_harvester", "label": "Advanced Harvester", "tier": "advanced", "tech": 6, "size": 4, "cost": {"credits": 500000}, "acquire": "bought from an AI station", "per_day": 17280},
+      {"key": "industrial_harvester", "label": "Industrial Harvester", "tier": "industrial", "tech": 9, "size": 4, "cost": {"credits": 1000000}, "acquire": "bought from an AI station", "per_day": 25920}
+    ],
+    "promethium": [
+      {"key": "promethium_extractor", "label": "Promethium Extractor", "tier": "single", "tech": 0, "size": 5, "cost": {"credits": 50000000}, "acquire": "bought from an AI station", "per_day": 1440}
+    ],
+    "copper": [
+      {"key": "copper_extractor", "label": "Copper Extractor", "tier": "single", "tech": 0, "size": 5, "cost": {"credits": 3200}, "acquire": "bought from an AI station", "per_day": 8.64}
+    ],
+    "titanium": [
+      {"key": "titanium_extractor", "label": "Titanium Extractor", "tier": "single", "tech": 1, "size": 6, "cost": {"credits": 1000000}, "acquire": "bought from an AI station", "per_day": 8.64}
+    ],
+    "gold": [
+      {"key": "gold_extractor", "label": "Gold Extractor", "tier": "single", "tech": 1, "size": 5, "cost": {"credits": 10000}, "acquire": "bought from an AI station", "per_day": 8.64}
+    ],
+    "oil": [
+      {"key": "oil_drill", "label": "Oil Drill", "tier": "single", "tech": 0, "size": 5, "cost": {"credits": 500000}, "acquire": "bought from an AI station", "per_day": 8.64}
+    ]
+  },
+  "gear": [
+    {"key": "station_beam_cannon_mk1", "label": "Station Beam Cannon Mk I", "slot": "weapon", "tech": 3, "size": 5, "cost": {"credits": 5500}, "acquire": "bought from an AI station"},
+    {"key": "station_beam_cannon_mk2", "label": "Station Beam Cannon Mk II", "slot": "weapon", "tech": 6, "size": null, "upgrade_from": "station_beam_cannon_mk1", "upgrade_qty": 1, "blueprint": "Station Beam Cannon Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_beam_cannon_mk3", "label": "Station Beam Cannon Mk III", "slot": "weapon", "tech": 9, "size": null, "upgrade_from": "station_beam_cannon_mk2", "upgrade_qty": 1, "blueprint": "Station Beam Cannon Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "gold": 100}},
+    {"key": "station_mag_cannon_mk1", "label": "Station Mag Cannon Mk I", "slot": "weapon", "tech": 3, "size": 5, "cost": {"credits": 5000}, "acquire": "bought from an AI station"},
+    {"key": "station_mag_cannon_mk2", "label": "Station Mag Cannon Mk II", "slot": "weapon", "tech": 6, "size": null, "upgrade_from": "station_mag_cannon_mk1", "upgrade_qty": 1, "blueprint": "Station Mag Cannon Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_mag_cannon_mk3", "label": "Station Mag Cannon Mk III", "slot": "weapon", "tech": 9, "size": null, "upgrade_from": "station_mag_cannon_mk2", "upgrade_qty": 1, "blueprint": "Station Mag Cannon Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "gold": 100}},
+    {"key": "station_energy_mk1", "label": "Station Energy Mk I", "slot": "energy", "tech": 3, "size": 5, "cost": {"credits": 6000}, "acquire": "bought from an AI station"},
+    {"key": "station_energy_mk2", "label": "Station Energy Mk II", "slot": "energy", "tech": 6, "size": null, "upgrade_from": "station_energy_mk1", "upgrade_qty": 1, "blueprint": "Station Energy Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_energy_mk3", "label": "Station Energy Mk III", "slot": "energy", "tech": 9, "size": null, "upgrade_from": "station_energy_mk2", "upgrade_qty": 1, "blueprint": "Station Energy Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "oil": 500}},
+    {"key": "station_shield_mk1", "label": "Station Shield Mk I", "slot": "shield", "tech": 3, "size": 5, "cost": {"credits": 8000}, "acquire": "bought from an AI station"},
+    {"key": "station_shield_mk2", "label": "Station Shield Mk II", "slot": "shield", "tech": 6, "size": null, "upgrade_from": "station_shield_mk1", "upgrade_qty": 1, "blueprint": "Station Shield Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_shield_mk3", "label": "Station Shield Mk III", "slot": "shield", "tech": 9, "size": null, "upgrade_from": "station_shield_mk2", "upgrade_qty": 1, "blueprint": "Station Shield Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "titanium": 500}},
+    {"key": "station_shield_transference_mk1", "label": "Station Shield Transference Mk I", "slot": "utility", "tech": 3, "size": 5, "cost": {"credits": 6000}, "acquire": "bought from an AI station"},
+    {"key": "station_shield_transference_mk2", "label": "Station Shield Transference Mk II", "slot": "utility", "tech": 6, "size": null, "upgrade_from": "station_shield_transference_mk1", "upgrade_qty": 1, "blueprint": "Station Shield Transference Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_shield_transference_mk3", "label": "Station Shield Transference Mk III", "slot": "utility", "tech": 9, "size": null, "upgrade_from": "station_shield_transference_mk2", "upgrade_qty": 1, "blueprint": "Station Shield Transference Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "gold": 100}},
+    {"key": "station_sensor_mk1", "label": "Station Sensor Mk I", "slot": "sensor", "tech": 3, "size": 250, "cost": {"credits": 7000}, "acquire": "bought from an AI station"},
+    {"key": "station_sensor_mk2", "label": "Station Sensor Mk II", "slot": "sensor", "tech": 6, "size": null, "upgrade_from": "station_sensor_mk1", "upgrade_qty": 1, "blueprint": "Station Sensor Mk II Blueprint", "cost": {"manhours": 100000, "metal": 200000, "microchips": 5000}},
+    {"key": "station_sensor_mk3", "label": "Station Sensor Mk III", "slot": "sensor", "tech": 9, "size": null, "upgrade_from": "station_sensor_mk2", "upgrade_qty": 1, "blueprint": "Station Sensor Mk III Blueprint", "cost": {"manhours": 1000000, "metal": 2500000, "microchips": 100000, "titanium": 500}},
+    {"key": "station_point_defense_laser_mk1", "label": "Station Point Defense Laser Mk I", "slot": "weapon", "tech": 3, "size": 5, "cost": {"credits": 5500}, "acquire": "bought from an AI station"},
+    {"key": "layered_plating_mk3", "label": "Layered Plating Mk III", "slot": "plating", "tech": 9, "size": null, "blueprint": "Layered Plating Mk III Blueprint", "blueprint_price": {"credits": 25000000}, "cost": {"manhours": 1000000, "credits": 5000000, "metal": 10000000, "titanium": 250}, "note": "Built from scratch from its own blueprint; does not need the Mk I or Mk II. 15% resistance to every damage type."},
+    {"key": "orbital_shuttle_network", "label": "Orbital Shuttle Network", "slot": "utility", "tech": 9, "size": 1, "cost": {"credits": 50000000}, "acquire": "bought from an AI station"}
+  ]
+}

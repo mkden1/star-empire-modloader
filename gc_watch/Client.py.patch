@@ -1,0 +1,21 @@
+# gc_watch: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: log garbage-collection pauses (gc_watch.py), and keep opt @@ order=14
+ from arena_client import ArenaClientMixin
++# MOD: log garbage-collection pauses (gc_watch.py), and keep options.txt saves from the game
+
+@@ import gc_watch @@ order=16
+ from arena_client import ArenaClientMixin
++import gc_watch
+
+@@ gc_watch.install() @@ order=18
+ from arena_client import ArenaClientMixin
++gc_watch.install()
+
+@@ gc_watch.install_window(SolarSystemWindow) # MOD: freezes the he @@ order=3
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++gc_watch.install_window(SolarSystemWindow)   # MOD: freezes the heap 90 s after the window starts
++

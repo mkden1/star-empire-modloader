@@ -1,0 +1,69 @@
+# combat_log: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ self._record_combat_log_hit(hit, tid, _is_my_hit, now, me) @@
+                 self._shield_effects.record_hit(hit, now)
++            self._record_combat_log_hit(hit, tid, _is_my_hit, now, me)
+
+@@ elif event.key == pygame.K_l and (event.mod & pygame.KMOD_SHIFT) @@
++                    elif event.key == pygame.K_l and (event.mod & pygame.KMOD_SHIFT):
++                        # MOD: Shift+L toggles the Combat Log panel. Plain L became the
++                        # dev's Skills hotkey in v0.5.74 (next branch) and would shadow it.
++                        # Hits are always recorded (register_hit runs regardless) --
++                        # this only shows/hides the panel itself.
++                        self._combat_log_open = not self._combat_log_open
+                     elif event.key == pygame.K_l:
+
+@@ Combat Log wheel scroll: combat_log.wheel(...) @@
+                             0, self._server_db_profiler_results_scroll - event.y * 3)
+                         continue
++                    if combat_log.wheel(self, event, _gui_route_allows):   # MOD: scroll the Combat Log history (combat_log.py)
++                        continue
+
+@@ elif combat_log.panel_hit(...): the Combat Log panel click @@
++                    elif combat_log.panel_hit(self, event.pos, _gui_route_allows):   # MOD: the Combat Log panel (combat_log.py)
++                        if combat_log.click(self, event.pos):
++                            continue
+                     elif (self._mission_log_open
+
+@@ combat_log.release(self): end a drag or resize @@
++                    if combat_log.release(self):   # MOD: end a Combat Log drag or resize (combat_log.py)
++                        continue
+                     # Gear Upgrade window: dropped where its header was dragged.
+                     if _gear_upgrade_window.release(self):
+
+@@ combat_log.motion(...): follow a drag or resize @@
++                    if combat_log.motion(self, event.pos, win_w, win_h, _gui_route_allows):   # MOD: Combat Log drag / resize (combat_log.py)
++                        continue
+                     if (self._friends_sb_dragging
+
+@@ # Floating damage numbers -- drawn last among the world-space @@
++            # Floating damage numbers -- drawn last among the world-space
++            # passes (on top of beams/reticles/popups) so a splat is never
++            # visually buried under something it landed behind.
++            self._profiler.mark("draw_hitsplats")
++            self._draw_hitsplats(_frame)
++
+             self._profiler.mark("draw_cargo_toss_dialog")
+
+@@ self._profiler.mark("combat_log_panel") @@
+                 visible=lambda: self._friends_open)
+ 
++            self._profiler.mark("combat_log_panel")
++            self._gui_windows.queue_draw(
++                "combat_log", lambda: self._draw_combat_log_panel(_frame),
++                lambda: self._combat_log_panel_rect,
++                visible=lambda: self._combat_log_open)
++
+
+@@ from combat_log import the two limits @@ order=100
+ from arena_client import ArenaClientMixin
++from combat_log import _COMBAT_LOG_MAX_LINES, _HITSPLAT_MAX  # MOD: the Combat Log's limits (combat_log.py)
+
+@@ combat_log.install(SolarSystemWindow) @@ order=100
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++import combat_log  # MOD: the Combat Log's methods on the window (combat_log.py)
++combat_log.install(SolarSystemWindow)
++

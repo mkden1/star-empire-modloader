@@ -1,0 +1,10 @@
+# station_auto_name: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import station_auto_name # MOD: an AUTO NAME button on the stati @@ order=12
+ from arena_client import ArenaClientMixin
++import station_auto_name  # MOD: an AUTO NAME button on the station rename dialog, "<planet> - <next number>" (station_auto_name.py)
+
+@@ else: @@
+                     self._ps_rename_dialog = None
++                else:
++                    station_auto_name.click(self, dialog, event.pos)   # MOD: AUTO NAME fills the field (station_auto_name.py)

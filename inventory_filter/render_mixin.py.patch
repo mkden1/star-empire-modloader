@@ -1,0 +1,23 @@
+# inventory_filter: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ import inventory_filter as _inventory_filter # MOD: a FILTER but @@ order=4
+                               territory_rgb)
++import inventory_filter as _inventory_filter  # MOD: a FILTER button + tab on the station Storage tab (inventory_filter.py)
+
+@@ # MOD: room right of the box for the FILTER button (inventory_fi @@
+-                    OV_W - self._s(40), _STOR_SEARCH_H)
++                    # MOD: room right of the box for the FILTER button (inventory_filter.py)
++                    OV_W - self._s(40) - _inventory_filter.storage_button_width(self),
++                    _STOR_SEARCH_H)
+
+@@ # MOD: the FILTER button and where its tab docks (inventory_filt @@
+                 self._ps_storage_search_rect = _stor_search_rect
++                # MOD: the FILTER button and where its tab docks (inventory_filter.py)
++                _inventory_filter.draw_storage_button(
++                    self, screen, _stor_search_rect,
++                    pygame.Rect(OV_X, OV_Y, OV_W, OV_H))
+
+@@ # MOD: then the FILTER tab's type / rarity / loadout / sort (inv @@
+                     _unified_rows = self._ps_storage_filter_cache
++                # MOD: then the FILTER tab's type / rarity / loadout / sort (inventory_filter.py)
++                _unified_rows = _inventory_filter.storage_rows(self, _unified_rows)

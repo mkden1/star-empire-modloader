@@ -1,0 +1,6 @@
+{
+  "description": "Planet orbit period and a gate's sun distance and bearing in the target panel.",
+  "requires": [
+    "core"
+  ]
+}

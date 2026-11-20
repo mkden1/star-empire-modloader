@@ -1,0 +1,161 @@
+# ui_pages: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+
+@@ import capture_settings_panel # MOD: the ESC menu's Data Capture @@ order=1
+                               territory_rgb)
++import capture_settings_panel  # MOD: the ESC menu's Data Capture page
++import mods_page  # MOD: the ESC menu's Mods page (which mods are loaded)
++import ui_panels_page  # MOD: the ESC menu's UI PANELS page (ui_panels_page.py)
+
+@@ bool(panel.get("hidden")), @@
+             bool(panel.get("minimized")),
++            bool(panel.get("hidden")),
+
+@@ if p.get("hidden"): @@
+         p      = self._panels[pid]
++        if p.get("hidden"):
++            # Fully hidden via the UI Panels settings page (see
++            # _draw_ui_panels_settings) -- unlike "minimized", the header
++            # itself is gone too, so nothing about this panel should still
++            # be clickable. Drop its rects rather than leaving last frame's
++            # values sitting around for a stray click to hit.
++            self._panel_header_rects.pop(pid, None)
++            self._panel_toggle_rects.pop(pid, None)
++            self._panel_full_rects.pop(pid, None)
++            return 0
+
+@@ # Skip the position half of the resize-safety clamp below while  @@
+-        px = max(0, min(win_w - p_w, px))
++        # Skip the position half of the resize-safety clamp below while the
++        # user is actively dragging this exact panel's header. Without this,
++        # a shrunk window that clamps px/py every single frame will snap the
++        # panel right back the instant a drag sets a new x/y that still
++        # trips the same "doesn't fit" check -- reported live as two HUD
++        # panels parked on top of Ship Vitals after shrinking the window,
++        # with no way to drag them clear (every dragged frame got
++        # overridden right back before the next paint). The panel is still
++        # re-clamped normally the moment the drag ends, so it can't be left
++        # somewhere genuinely off-screen either.
++        _dragging_now = bool(p.get("dragging"))
++        if not _dragging_now:
++            px = max(0, min(win_w - p_w, px))
+         if _max_h is not None and not mini:
+
+@@ if not _dragging_now: @@
+-                py = max(0, min(win_h - _hh - _min_region_h
+-                                - self._RESIZE_GRIP_H, py))
++                if not _dragging_now:
++                    py = max(0, min(win_h - _hh - _min_region_h
++                                    - self._RESIZE_GRIP_H, py))
+
+@@ elif not _dragging_now: @@
+             total_h = _hh + body_h + _foot_h + self._RESIZE_GRIP_H
+-        else:
++        elif not _dragging_now:
+
+@@ if (self._esc_menu_open or self._options_open @@
+-        if self._esc_menu_open or self._options_open:
++        if (self._esc_menu_open or self._options_open
++                or self._ui_panels_settings_open):
+
+@@ _PH = _BH * 4 + _PAD * 5 + self._s(36) # MOD: +1 row, "Data Capt @@
+             if self._esc_menu_open and not self._options_open:
+                 _BW, _BH = self._s(260), self._s(48)
+                 _PAD = self._s(14)
+                 _PW  = _BW + _PAD * 2
+                 # Panel height fits 3 buttons (Options, Redeem Code,
+                 # Exit Game).  +1 button vs the old layout (which had
+                 # 2 buttons + 1 inter-button gap), so add one extra
+                 # (_BH + _PAD) for the new row.
+-                _PH  = _BH * 3 + _PAD * 4 + self._s(36)
++                _PH  = _BH * 5 + _PAD * 6 + self._s(36)   # MOD: +2 rows, "Data Capture" and "Mods"
+                 _px  = (_sw - _PW) // 2
+                 _py  = (_sh - _PH) // 2
+ 
+                 # One translucent quad. A window-sized surface made here each
+
+@@ ("capture", " Data Capture"), # MOD: capture_settings_panel.py @@
+                     ("options", "  Options"),
++                    ("capture", "  Data Capture"),   # MOD: capture_settings_panel.py
++                    ("mods", "  Mods"),   # MOD: mods_page.py
+
+@@ # Bottom row, across both columns under the taller one. @@
+-                # Close button, across both columns under the taller one.
++                # Bottom row, across both columns under the taller one.
+                 _oy = max(_oy, _right_oy)
+
+@@ # MOD: "UI Panels..." (opens the separate show/hide page; closes @@
+                 _oy = max(_oy, _right_oy)
++                # MOD: "UI Panels..." (opens the separate show/hide page; closes
++                # this panel first, same transition the ESC menu's own "Options"
++                # button makes) in the right corner of the title band, which is
++                # empty either side of "OPTIONS". It takes no row of its own: the
++                # panel has no height to spare (his 698 sits in a 720px screen),
++                # and it cannot share Close's row either, because vanilla's layout
++                # test requires Close to sit below every other control
++                # (test_csw_start_reminder).
++                _uipl = _cached_label("UI Panels...", (160, 210, 255), font_med)
++                _uipb = pygame.Rect(0, _py + self._s(8), _uipl.get_width() + self._s(24), _BH2)
++                _uipb.right = _px + _PW - _PAD
++                self._btn(screen, _uipb, _uipl,
++                          fill=(20, 40, 82), border=(70, 120, 210), border_w=1, radius=4)
++                self._opt_rects["uipanels"] = _uipb
++
++                # Close button
+
+@@ elif self._capture_settings_open: @@
+                 self._opt_rects["close"] = _CR
+ 
++            elif self._capture_settings_open:
++                # MOD: the Data Capture page (it also sets _ui_panels_settings_open, so the
++                # outer "a menu page is open" tests already hold); drawn by its own module.
++                capture_settings_panel.draw(self, screen)
++
++            elif self._mods_page_open:
++                # MOD: the Mods page (it also sets _ui_panels_settings_open); drawn by its own module.
++                mods_page.draw(self, screen)
++
++            elif self._ui_panels_settings_open:
++                ui_panels_page.draw(self, screen, _sw, _sh, _cached_label, font_med, font_sm)   # MOD: the UI PANELS page (ui_panels_page.py)
++
+
+@@ if panel.get("hidden") or panel.get("minimized"): @@
+-        if panel.get("minimized"):
++        if panel.get("hidden") or panel.get("minimized"):
++            # Hidden via the UI Panels settings page -- _draw_panel above
++            # already bailed out and dropped _panel_full_rects["fighter_control"],
++            # so reading it below would KeyError. This panel isn't behind a
++            # retained/cached layer (unlike turrets), so it's called fresh
++            # every frame and hits this every time while hidden.
+             self._fighter_control_rects = {}
+
+@@ panel = self._panels.setdefault("turrets", { @@
+-        self._panels.setdefault("turrets", {
++        panel = self._panels.setdefault("turrets", {
+
+@@ if panel.get("hidden"): @@
+             "scrollbar_dragging": False, "scrollbar_drag_oy": 0,
+         })
++        if panel.get("hidden"):
++            # Hidden via the UI Panels settings page -- drop the retained hit
++            # geometry outright rather than republishing it below (a hidden
++            # panel must not still route clicks to where it used to be), and
++            # skip the live/cached draw entirely so its own hidden guard
++            # never has to run against rects this function just discarded.
++            self._panel_header_rects.pop("turrets", None)
++            self._panel_toggle_rects.pop("turrets", None)
++            self._panel_full_rects.pop("turrets", None)
++            self._turret_control_rects = {}
++            self.__dict__.pop("_turret_control_hit_geometry", None)
++            return
+         # Hit rectangles are output metadata rather than pixels. Retained GPU
+
+@@ # _draw_panel already bailed out (returning 0, and clearing @@
+-        if panel.get("minimized"):
++        # _draw_panel already bailed out (returning 0, and clearing
++        # _panel_full_rects) if hidden -- the caller (_draw_turret_control_panel)
++        # is the normal gate for that and never reaches here while hidden, but
++        # this mirrors that guard defensively since the outer.w/outer.h access
++        # just below would otherwise KeyError against the rect _draw_panel
++        # just discarded.
++        if panel.get("hidden") or panel.get("minimized"):
+             self._turret_control_rects = {}

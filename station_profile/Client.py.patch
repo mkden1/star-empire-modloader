@@ -1,0 +1,16 @@
+# station_profile: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import station_profile # MOD: a snapshot of each player station  @@ order=8
+ from arena_client import ArenaClientMixin
++import station_profile  # MOD: a snapshot of each player station when you leave it (station_profile.py)
+
+@@ # MOD: a snapshot of every player station you manage, written wh @@ order=12
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: a snapshot of every player station you manage, written when you undock (and about once a minute while docked), for
++# the STATIONS tab of the scan archive (station_profile.py). Asks the owner's Trade Manager list once at dock so the
++# snapshot can hold it. Off with the Data Capture page's "Colony & station state" switch.
++station_profile.install(SolarSystemWindow)
++

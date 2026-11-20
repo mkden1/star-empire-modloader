@@ -1,0 +1,13 @@
+# music_prefetch: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: read the next track ahead and time every track load (musi @@
+         music_output.stop()
+ 
+ 
++# MOD: read the next track ahead and time every track load (music_prefetch.py). Applied from
++# outside the class so the vanilla MusicPlayer source, which vanilla's own tests load on their
++# own, stays exactly as shipped.
++import music_prefetch
++music_prefetch.install(MusicPlayer)
++
++

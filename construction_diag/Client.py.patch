@@ -1,0 +1,13 @@
+# construction_diag: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: log what the server really sends about station constructi @@ order=2
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: log what the server really sends about station construction (construction_diag.py) so an
++# estimated time to complete for Construction Bay projects can be designed from real data. Log only; the
++# two protocol handlers it wraps still run first-class and unchanged. Off with STAR_EMPIRE_NO_CONSTRUCTION_DIAG=1.
++import construction_diag
++construction_diag.install(ProtocolMixin)
++

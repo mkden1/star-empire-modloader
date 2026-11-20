@@ -1,0 +1,108 @@
+# scan_capture: patches to the game's protocol.py (generated from the dev's v0.5.84 text)
+
+@@ from scan_logger import RESOURCE_LABELS and the other loggers @@
+ import stealth
++from scan_logger import RESOURCE_LABELS
++from station_id_logger import record_stations
++from trade_bot_slots_capture import record_trade_bot_slots
++from bot_fleet_scan_logger import record_bot_state
++from combat_scan_logger import (record_inventory_items, record_ship_plugin_data,
++                                 record_ship_specs, record_skills_data, record_turret_state)
+
+@@ res / ext may be null in a scan reply @@
+-        res    = data.get("resources", {})
+-        ext    = data.get("extractors", {})
++        res    = data.get("resources", {}) or {}
++        ext    = data.get("extractors", {}) or {}
+
+@@ RESOURCE_LABELS = { @@
+-        RESOURCE_LABELS = {
+-            "metal_ore":  "Metal Ore",
+-            "silicon":    "Silicon",
+-            "copper":     "Copper",
+-            "titanium":   "Titanium",
+-            "gold":       "Gold",
+-            "oil":        "Oil",
+-            "wood":       "Wood",
+-            "space_corn": "Space Corn",
+-        }
+-
+
+@@ record_skills_data(skills, mastery_tree) @@
+             self._solar_window.set_abilities(abilities)
++        record_skills_data(skills, mastery_tree)
+
+@@ record_bot_state(bot_pid, sw._rc_bots.get(bot_pid), @@
+             stasis_red_secs_left = float(data.get("stasis_red_secs_left", 0.0)),
+         )
++        record_bot_state(bot_pid, sw._rc_bots.get(bot_pid),
++                          {"username": getattr(sw, "_username", "")})
+
+@@ """Cache dock-dropdown options, keyed by system name (lower). @@
+-        """Cache dock-dropdown options, keyed by system name (lower)."""
++        """Cache dock-dropdown options, keyed by system name (lower).
++
++        This hands over every station in the system at once, so it's also
++        the easiest place to passively capture real station IDs for the
++        bot-order generator — no manual dock-and-export needed per station.
++        """
+
+@@ if sysname: @@
+         cache[sysname.lower()] = stations
++        if sysname:
++            record_stations(sysname, stations)
+
+@@ # An NPC station's trade_inventory carries the same per-item ``s @@
+         self.send("EVENT_POINTS_REQUEST")
++        # An NPC station's trade_inventory carries the same per-item ``stats``
++        # dict as ship-inventory rows -- including for items you don't own at
++        # all yet (e.g. a ship for sale), confirmed this session by a real
++        # tooltip screenshot showing a hull's declared "Shield Bonus: +22%".
++        record_inventory_items(data.get("trade_inventory") or [])
+
+@@ record_inventory_items(data.get("trade_inventory") or []) @@
+                 data.get("trade_inventory") or [])
++        record_inventory_items(data.get("trade_inventory") or [])
+
+@@ # Same as _on_npc_station_dock_ok -- harmless no-op if this play @@
++        # Same as _on_npc_station_dock_ok -- harmless no-op if this player
++        # station doesn't carry a trade_inventory at all.
++        record_inventory_items(data.get("trade_inventory") or [])
+         if data.get("management_access", False) and not data.get("jump_gate_key"):
+
+@@ record_inventory_items(data.get("trade_inventory") or []) @@
+             self._solar_window.set_ps_trade_listing(data)
++        record_inventory_items(data.get("trade_inventory") or [])
+
+@@ # The Trade Manager's "catalogue" is every item type a player st @@
+             self._solar_window.set_ps_trade_manager(data)
++        # The Trade Manager's "catalogue" is every item type a player station
++        # CAN be configured to sell -- likely the broadest, least location-
++        # dependent source available (needs owner/manager access to a player
++        # station to trigger at all, but isn't limited to what's currently
++        # stocked anywhere, unlike trade_inventory captures).
++        record_inventory_items(data.get("catalogue") or [])
+
+@@ record_inventory_items(self._ship_inventory) @@
+             self._solar_window.set_inventory(self._ship_inventory)
++        record_inventory_items(self._ship_inventory)
+
+@@ record_turret_state(data) @@
+             self._solar_window.set_turret_state(data)
++        record_turret_state(data)
+
+@@ record_ship_plugin_data(data) @@
+             self._solar_window.set_ship_plugin_data(data)
++        record_ship_plugin_data(data)
+
+@@ record_ship_specs(data) @@
+             self._solar_window.set_ship_specs_data(data)
++        record_ship_specs(data)
+
+@@ # slots_used is the sum of each active bot's ship-tech cost, not @@
+             sw._trade_bot_slots_total = _total
++        # slots_used is the sum of each active bot's ship-tech cost, not a
++        # count of bots -- this is the only correct source for the Bot
++        # Activity dashboard's slot-utilization figure (see
++        # trade_bot_slots_capture.py's own docstring).
++        record_trade_bot_slots(getattr(self, "username", ""), _used, _total)

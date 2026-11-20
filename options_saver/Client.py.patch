@@ -1,0 +1,14 @@
+# options_saver: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # window off its render thread (options_saver.py: read + rewrite @@ order=15
+ from arena_client import ArenaClientMixin
++# window off its render thread (options_saver.py: read + rewrite of a shared file on every
++# window close / panel drop; 3.1 s once).
+
+@@ import options_saver @@ order=17
+ from arena_client import ArenaClientMixin
++import options_saver
+
+@@ options_saver.install(LoginScreen) @@ order=19
+ from arena_client import ArenaClientMixin
++options_saver.install(LoginScreen)

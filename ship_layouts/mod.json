@@ -1,0 +1,7 @@
+{
+  "description": "SHIP LAYOUTS: save a ship's fit under a name and compare it with the ship you fly (ship_layouts_window.py).",
+  "requires": [
+    "render_alias",
+    "core"
+  ]
+}

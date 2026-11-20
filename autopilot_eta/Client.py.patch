@@ -1,0 +1,22 @@
+# autopilot_eta: the autopilot banner's "ETA m:ss" (autopilot_eta.py). The install block at the end of Client.py:
+# the import and the two installs, around the render_alias mod's `import render_mixin as _render_mixin_module`.
+
+@@ # MOD: the autopilot banner's "ETA m:ss" (autopilot_eta.py) @@ order=3.5
+     _show_use_launcher_message()
+     sys.exit(1)
+
+
++# MOD: the autopilot banner's "ETA m:ss" (autopilot_eta.py). The estimate is kept by a small worker
++# that _ap_fly (the dev's flight_plan steering call) starts through the wrapper installed here; the banner
++# text function that render_mixin's HUD calls is wrapped from outside too, so the vanilla code is untouched.
++# Neither wrapper changes what the autopilot does or raises.
++import autopilot_eta
+
+@@ autopilot_eta.install(SolarSystemWindow) @@ order=4.5
+     _show_use_launcher_message()
+     sys.exit(1)
+
+
++autopilot_eta.install(SolarSystemWindow)
++autopilot_eta.install_banner(_render_mixin_module)
++

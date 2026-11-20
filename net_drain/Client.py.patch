@@ -1,0 +1,34 @@
+# net_drain: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # Hard wall-clock cap on how long a single _poll_network() call  @@
++    # Hard wall-clock cap on how long a single _poll_network() call may spend
++    # draining self._recv_q.  Without this, a backlog (server burst, or this
++    # thread simply not getting scheduled for a while) gets drained in one
++    # uninterruptible loop -- and since set_layout/_handle_line take
++    # self._lock repeatedly while processing each item, the render thread
++    # (which needs that same lock every frame to draw) stalls right along
++    # with it, which is what actually makes the WINDOW go "Not Responding",
++    # not just this thread. Confirmed live via /profiler: network_queue_wait
++    # hit a 10004ms max in a single frame -- a ~13,000-message backlog eaten
++    # in one shot. Capping the drain spreads that same backlog across many
++    # fast, responsive calls instead of one multi-second block; the queue is
++    # still strict FIFO, so nothing is lost or reordered, it just finishes
++    # catching up a bit later instead of freezing the client to catch up
++    # instantly.
++    _NETWORK_DRAIN_BUDGET_S = 0.008
++
+     def _network_item_profiler(self):
+
+@@ # MOD: always a real timestamp -- the drain budget below reads i @@
+-        _network_drain_t0 = (time.perf_counter()
+-                             if _network_prof is not None else 0.0)
++        # MOD: always a real timestamp -- the drain budget below reads it whether or not the
++        # profiler is running (the dev's `0.0` when it is off would end every drain at once).
++        _network_drain_t0 = time.perf_counter()
+
+@@ while True: @@
+-            for _drained in range(512):
++            while True:
++                if (time.perf_counter() - _network_drain_t0
++                        >= self._NETWORK_DRAIN_BUDGET_S):
++                    break  # Remainder stays queued; next call resumes draining.

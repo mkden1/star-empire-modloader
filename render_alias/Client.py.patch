@@ -1,0 +1,8 @@
+# render_alias: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import render_mixin as _render_mixin_module @@ order=4
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++import render_mixin as _render_mixin_module

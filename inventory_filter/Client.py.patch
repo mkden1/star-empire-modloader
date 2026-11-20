@@ -1,0 +1,25 @@
+# inventory_filter: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ import inventory_filter # MOD: filter / sort the ship inventorie @@ order=5
+ from arena_client import ArenaClientMixin
++import inventory_filter  # MOD: filter / sort the ship inventories and station Storage, incl. by saved loadout (inventory_filter.py)
+
+@@ _frame_events = inventory_filter.filter_events(self, _frame_even @@ order=3
+             _frame_events = pygame.event.get()
++            _frame_events = inventory_filter.filter_events(self, _frame_events)   # MOD: the FILTER buttons' presses and the filter tab's clicks
+
+@@ inventory_filter.queue(self, _frame) # MOD: the inventory filter @@ order=2
+                 _managed_draw_wrapper = _profile_managed_draw
++            inventory_filter.queue(self, _frame)   # MOD: the inventory filter tab joins the retained windows
+
+@@ # MOD: FILTER buttons on the ship inventories and station Storag @@ order=15
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: FILTER buttons on the ship inventories and station Storage, and the tab beside them: sort, show fitted / in
++# hold, type, rarity, and only the parts of a saved Ship Layout (inventory_filter.py). Wraps the shared ship inventory
++# view and the two search-bar footers; globals(), not sys.modules[__name__] (run_client.py exec()s this file as
++# __main__). Off with STAR_EMPIRE_NO_INVENTORY_FILTER=1.
++inventory_filter.install(SolarSystemWindow, _render_mixin_module, globals())
++

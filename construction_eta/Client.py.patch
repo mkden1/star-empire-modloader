@@ -1,0 +1,13 @@
+# construction_eta: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: an estimated time to complete for each Construction Bay p @@ order=6
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: an estimated time to complete for each Construction Bay project (construction_eta.py). Fed from
++# set_ps_construction_bay and drawn after _draw_station_overlay from the rows' own rectangles, so
++# vanilla's drawing code is untouched. Off with STAR_EMPIRE_NO_CONSTRUCTION_ETA=1.
++import construction_eta
++construction_eta.install(SolarSystemWindow, _render_mixin_module)
++

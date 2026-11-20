@@ -1,0 +1,33 @@
+# colony_scan: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ from shuttle_route_capture import record_shuttle_routes @@
+ from station_logs_client import StationLogClientMixin
++from shuttle_route_capture import record_shuttle_routes
++import colony_scan_logger
+
+@@ # Persist regardless of staleness (see below) -- colony_scan_log @@
+             _open_sid = (_ov.get("data") or {}).get("attached_station_id")
++        # Persist regardless of staleness (see below) -- colony_scan_logger.py.
++        colony_scan_logger.capture_colony_data(self, data)
+
+@@ # Persist this station's setup (skips a jump gate's fuel, which @@
+                     _ov_d["energy_regen"] = float(data.get("energy_regen", 0))
++                # Persist this station's setup (skips a jump gate's fuel, which
++                # arrives through here too) -- colony_scan_logger.py.
++                colony_scan_logger.capture_station_setup(self, _ov_d, data)
+
+@@ # This hub's shuttle wiring, for the Bot Activity dashboard's @@
+                   if isinstance(row, dict)]
++        # This hub's shuttle wiring, for the Bot Activity dashboard's
++        # "is this station served by the orbital network instead of trade
++        # bots" cross-reference -- see shuttle_route_capture.py.
++        record_shuttle_routes(station_id, routes)
+
+@@ colony_scan_logger.capture_shuttle_network(self, station_id, dia @@
+         dialog["route_scroll"] = max(0, int(dialog.get("route_scroll", 0)))
++        colony_scan_logger.capture_shuttle_network(self, station_id, dialog)
+
+@@ colony_scan_logger.capture_shuttle_network( @@
+                     level.get("destination_qty", 0))
++        colony_scan_logger.capture_shuttle_network(
++            self, dialog.get("station_id"), dialog)

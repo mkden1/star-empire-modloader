@@ -1,0 +1,14 @@
+# click_diag: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: click diagnostics (click_diag.py): one client-log line pe @@ order=5
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: click diagnostics (click_diag.py): one client-log line per left click saying what was in range
++# and what the picker chose. Wraps three window methods and this module's _cycle_overlapping_target
++# from here, after the class, so the vanilla click handler is untouched; switch: Data Capture page.
++import click_diag
++click_diag.install(SolarSystemWindow)
++click_diag.install_picker(globals())     # globals(), not sys.modules[__name__]: run_client.py exec()s this file as __main__
++

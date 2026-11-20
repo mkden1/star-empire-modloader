@@ -1,0 +1,3 @@
+{
+  "description": "Times pygame.event.get() and keeps SDL's joystick detection off the render loop (pump_watch.py). Tells click_diag about each batch of events when that mod is installed."
+}

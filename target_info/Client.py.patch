@@ -1,0 +1,38 @@
+# target_info: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ _planet_orbit_figures(...) @@
+                 _pdist  = math.hypot(_pwx_t - self._local_x, _pwy_t - self._local_y)
++                (_pperiod, _pangle, _ppct, _orb_r, _pbearing) = _planet_orbit_figures(   # MOD: the body's orbit figures (target_info.py)
++                    _tgt_planet, self._orbit_angles)
+
+@@ (f" Orbit: {_format_orbit_period(_pperiod)}" @@
+                     (f" Dist: {_pdist:,.0f} u",   _PNL_DIM,        False, 0, 0, None),
++                    (f" Orbit: {_format_orbit_period(_pperiod)}"
++                     f"  |  Phase: {_ppct:.0f}%",
++                                                   _PNL_DIM,        False, 0, 0, None),
++                    (f" Orbit Dist: {_orb_r:,.0f} u"
++                     f"  |  Bearing: {_pbearing:.1f}°",
++                                                   _PNL_DIM,        False, 0, 0, None),
+
+@@ _gx = float(_tgt_gate.get("x", 0)) @@
+-                    _gdist  = math.hypot(float(_tgt_gate.get("x", 0)) - self._local_x,
+-                                         float(_tgt_gate.get("y", 0)) - self._local_y)
++                    _gx     = float(_tgt_gate.get("x", 0))
++                    _gy     = float(_tgt_gate.get("y", 0))
++                    _gdist  = math.hypot(_gx - self._local_x, _gy - self._local_y)
+
+@@ _gate_sun_figures(...) @@
+                     _gstatus = "Locked" if _glocked else "Open"
++                    _gsun_dist, _gsun_bearing = _gate_sun_figures(_gt_layout, _gx, _gy)   # MOD: the gate's distance and bearing from the sun (target_info.py)
+
+@@ (f" Sun Dist: {_gsun_dist:,.0f} u" @@
+                         (f" Status: {_gstatus}",        _PNL_DIM,        False, 0, 0, None),
++                        (f" Sun Dist: {_gsun_dist:,.0f} u"
++                         f"  |  Bearing: {_gsun_bearing:.1f}°",
++                                                         _PNL_DIM,        False, 0, 0, None),
+
+@@ from target_info import the orbit figures @@ order=103
+ from arena_client import ArenaClientMixin
++from target_info import (format_orbit_period as _format_orbit_period,  # MOD: the planet orbit figures (target_info.py)
++                         gate_sun_figures as _gate_sun_figures,
++                         planet_orbit_figures as _planet_orbit_figures)

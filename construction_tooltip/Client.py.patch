@@ -1,0 +1,13 @@
+# construction_tooltip: patches to the game's Client.py (generated from the dev's v0.5.84 text)
+
+@@ # MOD: what a selected Construction Bay blueprint costs against  @@ order=7
+     _show_use_launcher_message()
+     sys.exit(1)
+ 
+ 
++# MOD: what a selected Construction Bay blueprint costs against the station's stock (construction_tooltip.py).
++# Wraps the game's shared _draw_cb_side_popup so the blueprint popup gets the stock and a verdict; the game
++# still places and draws it, and its own project popup is untouched. Off with STAR_EMPIRE_NO_CONSTRUCTION_TOOLTIP=1.
++import construction_tooltip
++construction_tooltip.install(SolarSystemWindow, _render_mixin_module)
++

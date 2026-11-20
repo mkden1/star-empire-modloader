@@ -1,0 +1,6 @@
+{
+  "description": "Stack dump into the log when a thread stalls (freeze_watchdog.py); heartbeats from the main loop and the renderer.",
+  "requires": [
+    "core"
+  ]
+}
