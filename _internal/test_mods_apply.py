@@ -52,6 +52,26 @@ class ModsApplyTests(unittest.TestCase):
                 self.assertLessEqual(set(m.requires), names, f"{m.name} requires a mod that is not there")
                 self.assertNotIn(m.name, m.requires)
 
+    def test_every_mod_has_a_readme_in_the_shape_the_mod_picker_reads(self):
+        """mods/<name>/README.md: a title, a one-sentence summary, the sections below, and a Needs section that says
+        exactly what mod.json's ``requires`` says (so the two cannot drift apart)."""
+        import re
+        for m in MODS:
+            with self.subTest(mod=m.name):
+                readme = m.path / "README.md"
+                self.assertTrue(readme.is_file(), f"{m.name} has no README.md")
+                text = readme.read_text(encoding="utf-8")
+                lines = text.splitlines()
+                self.assertTrue(lines[0].startswith("# ") and len(lines[0]) > 2, "the first line is the title")
+                self.assertEqual(lines[1], "")
+                self.assertTrue(lines[2].strip() and not lines[2].startswith("#"), "then a one-sentence summary")
+                sections = re.findall(r"^## (.+)$", text, flags=re.M)
+                for wanted in ("What it does", "Using it", "Needs", "Under the hood"):
+                    self.assertIn(wanted, sections)
+                needs = text.split("## Needs", 1)[1].split("\n## ", 1)[0].strip().split("\n\n")[0]
+                self.assertEqual(set(re.findall(r"`([a-z_0-9]+)`", needs.split(". `modctl", 1)[0])),
+                                 set(m.requires), "the Needs section must list exactly mod.json's requires")
+
     def test_every_patch_targets_a_game_file_that_exists(self):
         for name in TARGETS:
             with self.subTest(file=name):

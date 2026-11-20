@@ -64,3 +64,10 @@ The player does nothing: the launch file updates the game and switches off mods 
 
 `custom_build\python.exe custom_build\run_tests.py` (the game's tests and ours), or `pytest _internal mods` from a shell
 that has the runtime. The game's files must be in `_internal/` for them to run.
+
+## License
+
+MIT (`LICENSE`), the same in all three branches, for the loader, the mods, their tests and the build tools. It does not
+cover the game, which belongs to its developer and is not in this repository, nor the patches' short anchor lines of the
+game's own code, nor the libraries bundled in the ready-to-run folder, which keep their own licenses
+(`THIRD_PARTY_NOTICES.txt` there). Each mod has its own `README.md` in the `mods` branch.

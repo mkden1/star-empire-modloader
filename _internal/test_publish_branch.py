@@ -21,7 +21,7 @@ HAVE_GIT = shutil.which("git") is not None
 def make_package(root: Path) -> Path:
     """A built package as the build leaves it: what goes on the branch and what does not."""
     files = {"Launch Modded Client.bat": "@echo off\r\n", "modctl.bat": "@echo off\r\n", "README.txt": "read me",
-             "THIRD_PARTY_NOTICES.txt": "notices", "modloader/modloader.py": "# loader", "modloader/game_updater.py": "#",
+             "THIRD_PARTY_NOTICES.txt": "notices", "LICENSE": "license", "modloader/modloader.py": "# loader", "modloader/game_updater.py": "#",
              "runtime/python/python.exe": "exe", "runtime/lib/pygame/__init__.py": "#", "runtime/lib/SDL2.dll": "dll",
              "licenses/a.txt": "x", "mods/README.txt": "mods go here",
              # not on the branch:
@@ -37,7 +37,7 @@ class BranchFilesTests(unittest.TestCase):
     def test_the_loader_the_launch_file_and_the_runtime_go_on_the_branch_and_nothing_else(self):
         with tempfile.TemporaryDirectory() as tmp:
             chosen = set(publish.branch_files(make_package(Path(tmp))))
-        self.assertEqual(chosen, {"Launch Modded Client.bat", "modctl.bat", "README.txt", "THIRD_PARTY_NOTICES.txt",
+        self.assertEqual(chosen, {"Launch Modded Client.bat", "modctl.bat", "README.txt", "THIRD_PARTY_NOTICES.txt", "LICENSE",
                                   "modloader/modloader.py", "modloader/game_updater.py", "runtime/python/python.exe",
                                   "runtime/lib/pygame/__init__.py", "runtime/lib/SDL2.dll", "licenses/a.txt",
                                   "mods/README.txt"})

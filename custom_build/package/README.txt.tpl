@@ -81,6 +81,12 @@ A NOTE
 These are client modifications. Check the game's rules before using any of them; the author of this package is not
 the game's developer and cannot speak for what it allows. Some mods record gameplay data to files on your computer
 (the "Data Capture" page in the ESC menu switches each recorder off).
+
+
+LICENSE
+-------
+The mod loader and the mods are MIT licensed (the file LICENSE). The game belongs to its developer and is not included.
+The libraries in the "runtime" folder keep their own licenses (THIRD_PARTY_NOTICES.txt and the "licenses" folder).
 {{BUNDLED}}
 
 THE MODS

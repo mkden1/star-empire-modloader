@@ -54,9 +54,10 @@ def add(names, available_dir: str = AVAILABLE, installed_dir: str = INSTALLED) -
     return copy, unknown
 
 
-# What is not copied out of a mod's folder: caches and the mod's own tests (the repository's mods branch keeps them
-# beside the code; the game does not need them).
-NOT_COPIED = shutil.ignore_patterns("__pycache__", "*.pyc", "test_*", "conftest.py", "expected_failures.txt")
+# What is not copied out of a mod's folder: caches, the mod's own tests, and its README and screenshots (the repository's
+# mods branch keeps them beside the code; they are for choosing a mod, the game does not need them).
+NOT_COPIED = shutil.ignore_patterns("__pycache__", "*.pyc", "test_*", "conftest.py", "expected_failures.txt",
+                                    "README.md", "screenshots")
 
 
 def _files(folder: str) -> "dict[str, bytes]":

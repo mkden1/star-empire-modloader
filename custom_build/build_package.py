@@ -72,7 +72,7 @@ RUNTIME_FILES = ("moderngl_compat.py",)
 # Everything the build writes into the output folder at its top level. A rebuild replaces exactly these and leaves the
 # rest of the folder alone: the game itself (Client.exe, _internal ... put there by the official launcher), the mods the
 # user chose in mods/, game_dir.txt and the settings and logs the game writes.
-OWNED = ("modloader", "mods_available", "runtime", "licenses", "README.txt", "THIRD_PARTY_NOTICES.txt",
+OWNED = ("modloader", "mods_available", "runtime", "licenses", "README.txt", "THIRD_PARTY_NOTICES.txt", "LICENSE",
          "Launch Modded Client.bat", "modctl.bat")
 # made by earlier builds and no longer: the one launch file checks the mods itself (removed on a rebuild)
 STALE = ("Check Mods.bat", "Open Mod Manager.bat")
@@ -185,6 +185,7 @@ def copy_licenses(out: Path) -> None:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 shutil.copy2(path, target)
     shutil.copy2(PACKAGE_SRC / "THIRD_PARTY_NOTICES.txt", out / "THIRD_PARTY_NOTICES.txt")
+    shutil.copy2(REPO_ROOT / "LICENSE", out / "LICENSE")             # the loader's and the mods' own license
 
 
 def mod_list_text(mods) -> str:

@@ -102,11 +102,15 @@ class ModctlTests(Folders):
     def test_a_mods_tests_are_not_copied_and_do_not_count_as_a_difference(self):
         """The mods branch keeps each mod's tests beside its code; a player's copy does not need them."""
         available, installed = self.make(core={"mod.json": "{}", "core.py": "X = 1\n", "test_core.py": "tests",
-                                               "conftest.py": "x", "expected_failures.txt": "x"})
+                                               "conftest.py": "x", "expected_failures.txt": "x", "README.md": "# Core\n"})
+        (Path(available) / "core" / "screenshots").mkdir()
+        (Path(available) / "core" / "screenshots" / "a.png").write_bytes(b"png")
         modctl.add(["core"], available, installed)
         self.assertEqual(sorted(p.name for p in (Path(installed) / "core").iterdir()), ["core.py", "mod.json"])
         (Path(available) / "core" / "test_core.py").write_text("more tests", encoding="utf-8")
-        self.assertEqual(modctl.update(["all"], available, installed), ([], [], []))
+        (Path(available) / "core" / "README.md").write_text("# Core, reworded\n", encoding="utf-8")
+        (Path(available) / "core" / "screenshots" / "b.png").write_bytes(b"png2")
+        self.assertEqual(modctl.update(["all"], available, installed), ([], [], []))        # none of that is a change
         (Path(available) / "core" / "core.py").write_text("X = 2\n", encoding="utf-8")
         self.assertEqual(modctl.update(["all"], available, installed), (["core"], [], []))     # a real change still counts
 
