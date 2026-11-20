@@ -1,0 +1,73 @@
+# The development branch: the loader's source, our tests, and the tools that build and publish the ready-to-run folder.
+# The game itself - everything the official launcher downloads into this folder - is not part of it. Install the game with
+# the launcher and it sits beside these files; the rules below keep it (and the launcher) out of git.
+# mods/ is the repository's "mods" branch checked out here (git worktree add mods mods): it is not part of this branch.
+/mods/
+
+# --- the game and the launcher -------------------------------------------------------------------------------------------
+/Client.exe
+/version.txt
+/prune_list.txt
+/StarEmpireLauncher*.exe
+/.update_staging/
+
+# The game's own files live in _internal/ (code, tests, art, sound, libraries). Only OUR files in it are tracked.
+/_internal/*
+!/_internal/modloader.py
+!/_internal/moderngl_compat.py
+!/_internal/conftest.py
+!/_internal/test_modloader.py
+!/_internal/test_moderngl_compat.py
+!/_internal/test_mods_apply.py
+!/_internal/test_package.py
+!/_internal/test_game_updater.py
+!/_internal/test_publish_branch.py
+!/_internal/test_hotkey_shadowing.py
+
+*.dll
+*.pyd
+
+# --- per-machine data and settings, never source ---------------------------------------------------------------------------
+# Logs
+*.log
+
+# Saved login (username + PLAINTEXT password) and window/panel layout state.
+_internal/options.txt
+
+# Data the scan mods collect - personal gameplay data.
+scan_data/
+
+# Which data loggers are switched on (the ESC menu's Data Capture page).
+capture_settings.json
+capture_settings.json.*.tmp
+
+# Whether the galaxy map opens as a window, and where it sits (galaxy_map_window.py).
+galaxy_map_window.json
+galaxy_map_window.json.*.tmp
+
+# The Ship Layouts window's rectangle and last selection (ship_layouts_window.py).
+ship_layouts_window.json
+ship_layouts_window.json.*.tmp
+
+# Which range rings are shown and the custom ring's distance (range_rings.py).
+range_rings.json
+range_rings.json.*.tmp
+
+# What the mod loader wrote at the last start-up (which mods were switched off and why), and the compiled patched code it
+# caches when custom_build/ does not exist.
+mods_report.txt
+.mod_cache/
+
+# --- the runtime and build output ------------------------------------------------------------------------------------------
+# custom_build/ also holds the standalone Python 3.14 runtime (a downloaded / built environment): only our scripts are tracked.
+custom_build/*
+!custom_build/run_client.py
+!custom_build/run_tests.py
+!custom_build/fix_runtime.py
+!custom_build/freeze_report.py
+!custom_build/exe_tools/
+!custom_build/build_package.py
+!custom_build/publish_branch.py
+!custom_build/package/
+
+__pycache__/
