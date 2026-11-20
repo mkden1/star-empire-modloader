@@ -1,0 +1,30 @@
+THIRD-PARTY COMPONENTS IN THE "runtime" FOLDER
+==============================================
+
+The mod loader and the mods are the package author's own work. The "runtime" folder holds software that other
+people wrote, which the game needs in order to run outside its own launcher. It is included under the licenses its
+authors chose; their license texts are in the "licenses" folder and, for Python, in runtime\python\LICENSE.txt.
+
+  Python 3.14 (python.exe, pythonw.exe, the .pyd files, python314.zip)   Python Software Foundation License
+  pygame                                                                 LGPL 2.1
+  SDL2, SDL2_image, SDL2_mixer, SDL2_ttf                                 zlib license
+  numpy and the math libraries in numpy.libs                             BSD 3-clause (and the licenses of the
+                                                                         libraries it bundles)
+  moderngl, glcontext                                                    MIT
+  cffi, pycparser                                                        MIT, BSD
+  orjson                                                                 Apache 2.0 / MIT
+  sounddevice (with PortAudio), soundfile (with libsndfile)              MIT, BSD, LGPL (libsndfile)
+  OpenAL Soft (soft_oal.dll)                                             LGPL
+  freetype, libpng, libjpeg, libtiff, libwebp, zlib                      their own permissive licenses
+  libogg, libopus, libopusfile, libwavpack, libxmp, portmidi             BSD / LGPL / MIT, as published by each project
+  Microsoft Visual C++ runtime (vcruntime*.dll, MSVCR100.dll)            redistributable under Microsoft's terms
+
+The LGPL libraries (pygame, OpenAL Soft, libsndfile, libxmp) are used as separate files that can be replaced with
+other builds of the same library; their source code is available from the projects' own sites.
+
+This list is a summary for convenience, not legal advice; the license files that come with each component are what
+count. If you redistribute this package, keep this file and the "licenses" folder with it.
+
+THE GAME ITSELF is not part of this package. Star Empire, its code, art and sound belong to its developer; install it
+with the official launcher. The patches in the "mods" folders quote short pieces of the game's code only as anchors
+that say where a change goes.

@@ -1,0 +1,11 @@
+Star Empire uses OpenAL Soft 1.25.2 for all sound and music.
+
+soft_oal.dll is the unmodified 64-bit binary from the OpenAL Soft project, loaded
+at run time, so it can be replaced with a compatible build of the library.
+
+Project:     https://openal-soft.org/
+Binaries:    https://openal-soft.org/openal-binaries/openal-soft-1.25.2-bin.zip
+Source code: https://openal-soft.org/openal-releases/openal-soft-1.25.2.tar.bz2
+
+OpenAL Soft is licensed under the GNU Lesser General Public License; see
+OpenAL-Soft-COPYING.txt. It includes PFFFT; see OpenAL-Soft-LICENSE-pffft.txt.

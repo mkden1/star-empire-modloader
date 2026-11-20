@@ -1,0 +1,22 @@
+# The ready-to-run folder. The game is installed into it by the official launcher, the mods are copied into mods/, and
+# mods_available/ is the repository's "mods" branch: none of that is part of this branch.
+/Client.exe
+/version.txt
+/prune_list.txt
+/StarEmpireLauncher*.exe
+/_internal/
+/.update_staging/
+/mods_available/
+/mods/*
+!/mods/README.txt
+/game_dir.txt
+
+# What the game and the loader write while you play: logs, per-machine settings, recorded data, caches.
+*.log
+/launch_log.txt
+/mods_report.txt
+/kept_logs/
+/.mod_cache/
+/scan_data/
+/*.json
+/*.json.*.tmp
