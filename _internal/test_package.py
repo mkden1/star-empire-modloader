@@ -150,6 +150,8 @@ class BuildPackageTests(unittest.TestCase):
         self.assertNotIn("sys.path.insert(0, _INTERNAL)", text)
         # the update step runs first: it may be what installs the game that the check below looks for
         self.assertLess(text.index("game_updater.update_game("), text.index("modloader.game_problem()"))
+        # the mod window comes before everything slow: the first thing the player sees, and Cancel there stops the start
+        self.assertLess(text.index("modpicker_model.choose_on_first_run(_ROOT)"), text.index("game_updater.update_game("))
 
     def test_the_launcher_fixes_moderngl_itself_so_even_the_plain_game_runs(self):
         """2026-11-20: the package's first real launch (mods/ empty) closed right after login with "the value must be a
@@ -178,6 +180,7 @@ class BuildPackageTests(unittest.TestCase):
             text = build_package.readme_text(template, [], with_mods)
             self.assertNotIn("{{", text)
             self.assertIn("Launch Modded Client.bat", text)
+            self.assertIn("Choose Mods.bat", text)
         self.assertIn("git clone --branch mods", build_package.readme_text(template, [], False))
         self.assertNotIn("git clone", build_package.readme_text(template, [], True))
 
@@ -191,6 +194,8 @@ class RebuildKeepsTheGameTests(unittest.TestCase):
         for rel, text in {"modloader/old.py": "x", "mods_available/old/mod.json": "{}", "runtime/python/python.exe": "x",
                           "licenses/a.txt": "x", "README.txt": "old", "Launch Modded Client.bat": "old",
                           "Check Mods.bat": "from an earlier build",        # no longer made: removed on a rebuild
+                          "modctl.bat": "an earlier build had it here; it is in modloader/ now",
+                          "Choose Mods.bat": "old",
                           # not the build's:
                           "Client.exe": "exe", "_internal/Client.py": "game", "version.txt": "0.5.86",
                           "mods/combat_log/mod.json": "{}", "game_dir.txt": self.USERS_OWN_EDIT, "options.txt": "secret",
@@ -205,7 +210,7 @@ class RebuildKeepsTheGameTests(unittest.TestCase):
             self.lay_out(out)
             build_package.prepare_output(out)
             for gone in ("modloader", "mods_available", "runtime", "licenses", "README.txt", "Launch Modded Client.bat",
-                         "Check Mods.bat"):
+                         "Choose Mods.bat", "Check Mods.bat", "modctl.bat"):
                 self.assertFalse((out / gone).exists(), gone)
             for kept in ("Client.exe", "_internal/Client.py", "version.txt", "mods/combat_log/mod.json", "game_dir.txt",
                          "options.txt", "star_empire_client.log", ".mod_cache/x", build_package.MARKER):

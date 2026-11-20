@@ -73,11 +73,12 @@ RUNTIME_FILES = ("moderngl_compat.py",)
 # rest of the folder alone: the game itself (Client.exe, _internal ... put there by the official launcher), the mods the
 # user chose in mods/, game_dir.txt and the settings and logs the game writes.
 OWNED = ("modloader", "mods_available", "runtime", "licenses", "README.txt", "THIRD_PARTY_NOTICES.txt", "LICENSE",
-         "Launch Modded Client.bat", "modctl.bat")
-# made by earlier builds and no longer: the one launch file checks the mods itself (removed on a rebuild)
-STALE = ("Check Mods.bat", "Open Mod Manager.bat")
-MODS_README = ("The game uses the mod folders in here. Put mods in with:  modctl.bat add NAME\n"
-               "(or copy a folder from mods_available by hand). Empty = the plain game.\n")
+         "Launch Modded Client.bat", "Choose Mods.bat")
+# made by earlier builds and no longer: the one launch file checks the mods itself, the mod picker window replaced the
+# console mod manager's place at the top (modctl.bat lives in modloader/ now); removed on a rebuild
+STALE = ("Check Mods.bat", "Open Mod Manager.bat", "modctl.bat")
+MODS_README = ("The game uses the mod folders in here. Pick them with Choose Mods.bat (the window), or copy a folder\n"
+               "from mods_available by hand. Empty = the plain game.\n")
 GAME_DIR_TEXT = ("# Only needed when this folder is NOT inside your Star Empire folder.\n"
                  "# Write the full path of the Star Empire folder (the one with Client.exe) on the next line, e.g.\n"
                  "# C:\\Games\\Star Empire\n")
@@ -204,7 +205,7 @@ def copy_loader(out: Path) -> None:
     """The ``modloader/`` folder: the loader, the launcher, the mod manager, the runtime fix and the authors' notes."""
     (out / "modloader").mkdir(exist_ok=True)
     shutil.copy2(INTERNAL / "modloader.py", out / "modloader" / "modloader.py")
-    for name in ("start_modded_client.py", "game_updater.py", "modctl.py"):
+    for name in ("start_modded_client.py", "game_updater.py", "modctl.py", "modpicker.py", "modpicker_model.py"):
         shutil.copy2(PACKAGE_SRC / name, out / "modloader" / name)
     for name in RUNTIME_FILES:
         shutil.copy2(INTERNAL / name, out / "modloader" / name)
@@ -246,7 +247,9 @@ def build_package(out: Path, with_mods: bool = True) -> "list[str]":
 
     batch = {
         "Launch Modded Client.bat": '@echo off\nstart "" "%~dp0runtime\\python\\pythonw.exe" "%~dp0modloader\\start_modded_client.py"\nexit\n',
-        "modctl.bat": '@echo off\n"%~dp0runtime\\python\\python.exe" "%~dp0modloader\\modctl.py" %*\n',
+        "Choose Mods.bat": '@echo off\nstart "" "%~dp0runtime\\python\\pythonw.exe" "%~dp0modloader\\modpicker.py"\nexit\n',
+        # for people who like a console: lives in modloader/ because the picker window does the same job
+        "modloader/modctl.bat": '@echo off\n"%~dp0..\\runtime\\python\\python.exe" "%~dp0modctl.py" %*\n',
     }
     for name, text in batch.items():
         (out / name).write_bytes(text.replace("\n", "\r\n").encode("utf-8"))
@@ -365,6 +368,30 @@ print("RESULT " + json.dumps({"context": True, "strict_without_the_shim": strict
 """
 
 
+PICKER_SMOKE = r"""
+# The mod picker with the package's own Python and libraries: draw the window on a dummy display, tick the recommended mods,
+# press Apply and see what landed in mods/ (the same calls the real window makes).
+import json, os, sys
+root = sys.argv[1]
+os.environ["SDL_VIDEODRIVER"] = "dummy"
+os.environ["SDL_AUDIODRIVER"] = "dummy"
+sys.path.insert(0, os.path.join(root, "modloader"))
+import modpicker                       # adds runtime/lib itself
+import pygame
+pygame.init()
+screen = pygame.display.set_mode((1120, 720))
+picker = modpicker.Picker(root=root, play=True)
+first = sorted(picker.selection.chosen)            # a first run opens with the recommended mods ticked
+picker.draw(screen)
+picker.result = "apply"
+code = picker.finish()
+mods = os.path.join(root, "mods")
+print("RESULT " + json.dumps({"code": code, "listed": len(picker.catalog.visible), "ticked": first,
+                              "applied": sorted(n for n in os.listdir(mods) if os.path.isdir(os.path.join(mods, n))),
+                              "marker": os.path.isfile(os.path.join(mods, ".chosen"))}))
+"""
+
+
 DECOY = 'raise ImportError("the game folder has its own copy of %s and it was used instead of the package\'s")\n'
 
 
@@ -447,6 +474,19 @@ def verify(out: Path, names: "list[str]") -> "list[str]":
         sys.path.insert(0, str(INTERNAL))
         import modloader
         mods = modloader.load_mods(out / "mods_available")
+
+        recommended = [m.name for m in mods if json.loads((m.path / "mod.json").read_text(encoding="utf-8-sig"))
+                       .get("recommended")]
+        proc = run_python(game, ["-I", "-c", PICKER_SMOKE, game])
+        picked = result_of(proc)
+        if picked is None:
+            problems.append("the mod picker does not run with the package's Python:\n" + (proc.stderr or proc.stdout)[-1500:])
+        elif (picked["code"], picked["marker"]) != (0, True) or picked["ticked"] != sorted(recommended):
+            problems.append(f"the mod picker's first run is wrong: {picked}")
+        elif picked["applied"] != sorted(modloader.requirement_closure(mods, recommended)):
+            problems.append(f"the mod picker applied {picked['applied']} for the recommended mods {sorted(recommended)}")
+        shutil.rmtree(game / "mods")
+        (game / "mods").mkdir()
 
         def alone(name):
             keep = modloader.requirement_closure(mods, [name])

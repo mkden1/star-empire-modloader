@@ -34,6 +34,16 @@ except Exception:
     _say("The mod loader could not be loaded:\n\n" + traceback.format_exc())
     raise SystemExit(1)
 
+# The first time (mods are on offer, none is in use, nothing was ever chosen) the mod picker window opens and the start waits
+# for it: tick the mods, press "Apply and play". Closing the window cancels the start. Later starts never open it (Choose
+# Mods.bat does, to change the mods). If the window itself cannot open, the game starts with the mods there are.
+try:
+    import modpicker_model
+    if not modpicker_model.choose_on_first_run(_ROOT):
+        raise SystemExit(0)
+except Exception:
+    pass
+
 # The one launch file does everything: if the official launcher is in the game's folder (or this one) it is run first, so
 # the game is installed or brought up to date, and the plain client it opens is closed again (game_updater.py). Then the
 # mods are checked as the game starts below: a mod that no longer fits the game's code is switched off and named in a

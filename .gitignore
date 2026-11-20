@@ -22,6 +22,7 @@
 !/_internal/test_package.py
 !/_internal/test_game_updater.py
 !/_internal/test_publish_branch.py
+!/_internal/test_modpicker.py
 !/_internal/test_hotkey_shadowing.py
 
 *.dll

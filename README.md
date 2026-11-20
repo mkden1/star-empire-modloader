@@ -31,7 +31,9 @@ _internal/modloader.py        the loader (source of truth; the ready-to-run fold
 _internal/moderngl_compat.py  the runtime shim for this Python's moderngl (also copied into the ready-to-run folder)
 _internal/test_*.py           tests of the loader, of "every mod applies / works alone", of the updater and the builders
 mods/                         the `mods` branch, checked out here
-custom_build/package/         what the ready-to-run folder is made of: the launcher scripts, mod manager, README template
+custom_build/package/         what the ready-to-run folder is made of: the launcher scripts, the mod picker window
+                              (modpicker.py = the pygame window, modpicker_model.py = what it knows and does), modctl.py
+                              (the same on a console), the README template
 custom_build/build_package.py builds that folder from this checkout (and proves each mod works alone)
 custom_build/publish_branch.py commits the built folder, without the mods, as the next commit on `modloader`
 custom_build/run_client.py    starts the modded client from this folder (Launch Modded Client.bat)
@@ -43,10 +45,14 @@ custom_build/freeze_report.py summarises what the freeze_watchdog mod wrote to t
 
 ## The player's side
 
-A player downloads the `modloader` branch, puts the official launcher in the folder, copies the mods they want from the
-`mods` branch into `mods/`, and double-clicks `Launch Modded Client.bat`. That file runs the official launcher (installing
-or updating the game and closing the plain client it opens), checks every mod against the game, and starts the game. The
-update step is `custom_build/package/game_updater.py`; the player-facing text is `custom_build/package/README.txt.tpl`.
+A player downloads the `modloader` branch, puts the official launcher in the folder, gets the `mods` branch into a folder
+called `mods_available`, and double-clicks `Launch Modded Client.bat`. The first time, a window (the mod picker, drawn with
+the bundled pygame: no browser, no server) lists the mods with their READMEs and screenshots; they tick what they want and
+press "Apply and play". After that the launch file runs the official launcher (installing or updating the game and closing
+the plain client it opens), checks every mod against the game, and starts the game; `Choose Mods.bat` reopens the window.
+The picker groups mods by `"category"` and pre-ticks the `"recommended"` ones, both keys of each `mod.json`
+(see `mods/README.md`, "The mod picker"). The update step is `custom_build/package/game_updater.py`; the player-facing
+text is `custom_build/package/README.txt.tpl`.
 
 ## When the game updates (you, not the player)
 
