@@ -155,6 +155,26 @@ A hook in the dev's file should be a line or two; the code it calls is ordinary 
 * What stays patch text is the glue inside the dev's own functions (an extra `elif`, a changed condition, a value in a
   dict): small, and anchored on the dev's code.
 
+## A README for every mod, and screenshots
+
+Every mod folder has a `README.md`: a title, a one-sentence summary, then **What it does**, **Using it**, **Settings** (when
+there are any), **Needs** and **Under the hood**. **Needs** lists exactly what `mod.json` requires (a test in the
+development branch fails if they differ), so a mod picker can read the READMEs for names, summaries and requirements. The
+list at the end of this file links to each one.
+
+Screenshots go in the mod's own `screenshots/` folder (PNG or JPG, a GIF for a short animation, each under about 300 KB)
+and are shown in the README with a relative link, which GitHub displays on the branch page:
+
+    ![The Combat Log window](screenshots/combat-log.png)
+
+Put them in a **Screenshots** section after **Using it**. `modctl` copies neither the README nor the screenshots into a
+player's `mods/` folder: they are for choosing a mod, not for running it.
+
+## License
+
+MIT (`LICENSE`) for the loader, the mods and their tests. The patches contain short lines of the game's own code as anchors;
+that code stays the developer's, and so does the game, which is not in this repository.
+
 ## The ready-to-run folder
 
 The repository's `modloader` branch is the folder a player uses: the loader, the one launch file (which also runs the
@@ -172,40 +192,40 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 
 | mod | what it does | patches | needs |
 |---|---|---|---|
-| `asset_watch` | Times every image the window loads on demand (asset_watch.py). | 1 in Client |  |
-| `autopilot_eta` | The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py). | 2 in Client | render_alias |
-| `chat_suggest` | Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py). | 3 in Client |  |
-| `click_diag` | Click diagnostics: one client-log line per left click saying what was in range (click_diag.py). | 1 in Client | core |
-| `colony_scan` | Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py). | 6 in Client | core |
-| `combat_log` | The Combat Log window and floating damage numbers, with shooter attribution through the shield-effects matcher. | 16 in Client, render_mixin, shield_effects | damage_types |
-| `construction_diag` | Logs what the server sends about station construction (construction_diag.py). | 1 in Client |  |
-| `construction_eta` | Estimated time to complete for each Construction Bay project (construction_eta.py). | 1 in Client | render_alias, core |
-| `construction_tooltip` | What a selected Construction Bay blueprint costs against the station's stock (construction_tooltip.py). | 1 in Client | render_alias, core |
-| `core` | Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock) and which body a station is on (station_bodies). It changes nothing in the game by itself. | (library) |  |
-| `crash_log_thread` | crash_log writes the client log from a background thread, so file I/O cannot stall the game. | 5 in crash_log |  |
-| `damage_types` | Imports the damage_types helpers that the combat log uses. | 1 in Client |  |
-| `freeze_watchdog` | Stack dump into the log when a thread stalls (freeze_watchdog.py); heartbeats from the main loop and the renderer. | 4 in Client | core |
-| `galaxy_map` | The galaxy map as a movable, resizable window (galaxy_map_window.py), the Survey view and the VIEW SCANS button (which needs the scan_archive mod and is left out without it). | 61 in Client, render_mixin | render_alias, core |
-| `gc_watch` | Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py). | 4 in Client |  |
-| `inventory_filter` | FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py). | 8 in Client, render_mixin | render_alias |
-| `music_prefetch` | Reads the next music track ahead and times every track load (music_prefetch.py). | 1 in Client |  |
-| `net_drain` | Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window. | 4 in Client, protocol |  |
-| `options_saver` | Keeps options.txt saves off the render thread (options_saver.py). | 3 in Client |  |
-| `prefab_extras` | Station prefabs also keep docking/management permissions, storage caps and trade entries (prefab_extras.py). | 3 in Client | render_alias |
-| `pump_watch` | Times pygame.event.get() and keeps SDL's joystick detection off the render loop (pump_watch.py). Tells click_diag about each batch of events when that mod is installed. | 3 in Client |  |
-| `range_rings` | Range rings around the ship: the weapon's reach and a configurable ring (range_rings.py). | 3 in Client | core |
-| `render_alias` | Names render_mixin as _render_mixin_module for the install blocks at the end of Client.py. | 1 in Client |  |
-| `scan_archive` | The scan archive: the planet/station/bot dashboard (scan_dashboard.py, scan_planner.py, scan_stations.py, bot_activity.py, station_overview.py), the galaxy export and their web assets. A library: it reads the files the recorder mods write (through core's scan_data.py), so it works with whichever of scan_capture, colony_scan, station_logs and station_profile you installed; the galaxy map's VIEW SCANS button opens it. | (library) | core |
-| `scan_capture` | Passively records scans, inventories, skills, stations and bot state from server messages into scan_data/ (scan_logger.py and the other loggers). | 18 in Client, protocol | core |
-| `ship_layouts` | SHIP LAYOUTS: save a ship's fit under a name and compare it with the ship you fly (ship_layouts_window.py). | 9 in Client | render_alias, core |
-| `sound_prefetch` | Reads the weapon sound files ahead on a background thread (sound_prefetch.py). | 1 in Client | core |
-| `squad_hud` | The squad / fighter roster HUD panel and its compact bar rows. | 10 in Client, render_mixin |  |
-| `station_auto_name` | AUTO NAME button on the station rename dialog (station_auto_name.py). | 4 in Client, render_mixin | core |
-| `station_gear_upgrade` | UPGRADE GEAR and ADD 50 GAMMA / WORKERS buttons in the station prefab dialog (station_gear_upgrade.py, station_expansion.py). | 3 in Client | render_alias |
-| `station_logs` | Station Logs tab: auto-backfill of older pages and capture of the rows (station_log_capture.py). | 9 in station_logs_client | core |
-| `station_probe` | /stationprobe: ask for another station's logs, cargo and construction (station_probe.py). | 3 in Client |  |
-| `station_profile` | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
-| `target_info` | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
-| `ui_pages` | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
-| `wire_zlib3` | The zlib3 wire format and SPACE_COMBAT_BATCH decoding (wire_compression.py, combat_batch.py). | 11 in arena_connection, protocol, wire_compression |  |
-| `zoom_floor` | Zoom out to 0.05 instead of 0.10 (and the things that scale with the zoom range). | 6 in Client, render_mixin |  |
+| [`asset_watch`](asset_watch/README.md) | Times every image the window loads on demand (asset_watch.py). | 1 in Client |  |
+| [`autopilot_eta`](autopilot_eta/README.md) | The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py). | 2 in Client | render_alias |
+| [`chat_suggest`](chat_suggest/README.md) | Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py). | 3 in Client |  |
+| [`click_diag`](click_diag/README.md) | Click diagnostics: one client-log line per left click saying what was in range (click_diag.py). | 1 in Client | core |
+| [`colony_scan`](colony_scan/README.md) | Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py). | 6 in Client | core |
+| [`combat_log`](combat_log/README.md) | The Combat Log window and floating damage numbers, with shooter attribution through the shield-effects matcher. | 16 in Client, render_mixin, shield_effects | damage_types |
+| [`construction_diag`](construction_diag/README.md) | Logs what the server sends about station construction (construction_diag.py). | 1 in Client |  |
+| [`construction_eta`](construction_eta/README.md) | Estimated time to complete for each Construction Bay project (construction_eta.py). | 1 in Client | render_alias, core |
+| [`construction_tooltip`](construction_tooltip/README.md) | What a selected Construction Bay blueprint costs against the station's stock (construction_tooltip.py). | 1 in Client | render_alias, core |
+| [`core`](core/README.md) | Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock) and which body a station is on (station_bodies). It changes nothing in the game by itself. | (library) |  |
+| [`crash_log_thread`](crash_log_thread/README.md) | crash_log writes the client log from a background thread, so file I/O cannot stall the game. | 5 in crash_log |  |
+| [`damage_types`](damage_types/README.md) | Imports the damage_types helpers that the combat log uses. | 1 in Client |  |
+| [`freeze_watchdog`](freeze_watchdog/README.md) | Stack dump into the log when a thread stalls (freeze_watchdog.py); heartbeats from the main loop and the renderer. | 4 in Client | core |
+| [`galaxy_map`](galaxy_map/README.md) | The galaxy map as a movable, resizable window (galaxy_map_window.py), the Survey view and the VIEW SCANS button (which needs the scan_archive mod and is left out without it). | 61 in Client, render_mixin | render_alias, core |
+| [`gc_watch`](gc_watch/README.md) | Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py). | 4 in Client |  |
+| [`inventory_filter`](inventory_filter/README.md) | FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py). | 8 in Client, render_mixin | render_alias |
+| [`music_prefetch`](music_prefetch/README.md) | Reads the next music track ahead and times every track load (music_prefetch.py). | 1 in Client |  |
+| [`net_drain`](net_drain/README.md) | Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window. | 4 in Client, protocol |  |
+| [`options_saver`](options_saver/README.md) | Keeps options.txt saves off the render thread (options_saver.py). | 3 in Client |  |
+| [`prefab_extras`](prefab_extras/README.md) | Station prefabs also keep docking/management permissions, storage caps and trade entries (prefab_extras.py). | 3 in Client | render_alias |
+| [`pump_watch`](pump_watch/README.md) | Times pygame.event.get() and keeps SDL's joystick detection off the render loop (pump_watch.py). Tells click_diag about each batch of events when that mod is installed. | 3 in Client |  |
+| [`range_rings`](range_rings/README.md) | Range rings around the ship: the weapon's reach and a configurable ring (range_rings.py). | 3 in Client | core |
+| [`render_alias`](render_alias/README.md) | Names render_mixin as _render_mixin_module for the install blocks at the end of Client.py. | 1 in Client |  |
+| [`scan_archive`](scan_archive/README.md) | The scan archive: the planet/station/bot dashboard (scan_dashboard.py, scan_planner.py, scan_stations.py, bot_activity.py, station_overview.py), the galaxy export and their web assets. A library: it reads the files the recorder mods write (through core's scan_data.py), so it works with whichever of scan_capture, colony_scan, station_logs and station_profile you installed; the galaxy map's VIEW SCANS button opens it. | (library) | core |
+| [`scan_capture`](scan_capture/README.md) | Passively records scans, inventories, skills, stations and bot state from server messages into scan_data/ (scan_logger.py and the other loggers). | 18 in Client, protocol | core |
+| [`ship_layouts`](ship_layouts/README.md) | SHIP LAYOUTS: save a ship's fit under a name and compare it with the ship you fly (ship_layouts_window.py). | 9 in Client | render_alias, core |
+| [`sound_prefetch`](sound_prefetch/README.md) | Reads the weapon sound files ahead on a background thread (sound_prefetch.py). | 1 in Client | core |
+| [`squad_hud`](squad_hud/README.md) | The squad / fighter roster HUD panel and its compact bar rows. | 10 in Client, render_mixin |  |
+| [`station_auto_name`](station_auto_name/README.md) | AUTO NAME button on the station rename dialog (station_auto_name.py). | 4 in Client, render_mixin | core |
+| [`station_gear_upgrade`](station_gear_upgrade/README.md) | UPGRADE GEAR and ADD 50 GAMMA / WORKERS buttons in the station prefab dialog (station_gear_upgrade.py, station_expansion.py). | 3 in Client | render_alias |
+| [`station_logs`](station_logs/README.md) | Station Logs tab: auto-backfill of older pages and capture of the rows (station_log_capture.py). | 9 in station_logs_client | core |
+| [`station_probe`](station_probe/README.md) | /stationprobe: ask for another station's logs, cargo and construction (station_probe.py). | 3 in Client |  |
+| [`station_profile`](station_profile/README.md) | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
+| [`target_info`](target_info/README.md) | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
+| [`ui_pages`](ui_pages/README.md) | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
+| [`wire_zlib3`](wire_zlib3/README.md) | The zlib3 wire format and SPACE_COMBAT_BATCH decoding (wire_compression.py, combat_batch.py). | 11 in arena_connection, protocol, wire_compression |  |
+| [`zoom_floor`](zoom_floor/README.md) | Zoom out to 0.05 instead of 0.10 (and the things that scale with the zoom range). | 6 in Client, render_mixin |  |
