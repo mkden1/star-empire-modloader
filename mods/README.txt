@@ -1,2 +1,2 @@
-The game uses the mod folders in here. Put mods in with:  modctl.bat add NAME
-(or copy a folder from mods_available by hand). Empty = the plain game.
+The game uses the mod folders in here. Pick them with Choose Mods.bat (the window), or copy a folder
+from mods_available by hand. Empty = the plain game.
