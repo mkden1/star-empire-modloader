@@ -161,6 +161,7 @@ def layout_detail(entry, width: int, fonts: Fonts, scale: float):
     for row in rows:
         ops.append(("text", 0, y, row, fonts.title, TEXT))
         y += fonts.title.get_linesize()
+    paragraph([("Name on the in-game Mods page: ", "normal"), (entry.name, "code")], "small", 0, DIM, width)
     y += gap
     if entry.summary:
         paragraph(inline_runs(entry.summary), "body", 0, DIM, width)

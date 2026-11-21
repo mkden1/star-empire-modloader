@@ -184,11 +184,17 @@ mods in `mods_available\`: a tick box for each, its README and screenshots besid
   `library` (code other mods need: not listed, only added when a mod that needs it is ticked). Missing = `features`.
 * `"recommended"`: `true` if the **Recommended** button ticks it (and it is ticked on the very first start). Missing =
   `false`. Keep it for mods that only show something or fix something invisibly: nothing that aims, fires, targets, moves
-  the camera, sends commands to the server or records data, and nothing meant for troubleshooting.
+  the camera by itself, sends commands to the server or records data, and nothing meant for troubleshooting.
 
 Ticking a mod also adds what it `requires`. **Apply** makes `mods\` match: it copies what is missing, removes what was
 unticked and refreshes copies that differ from `mods_available\`. Folders in `mods\` that are not in `mods_available\` are a
 player's own mods and are left alone, together with the mods they need.
+
+**Names in the game.** The ESC menu's Mods page lists every mod by its folder name, so the picker shows that name under the
+title. Only recorders and diagnostics get a switch on the ESC menu's Data Capture page (an optimisation, category
+`speed`, has none: having the mod is its switch), the page lists a switch only when its mod is in effect, and the
+mod's README says what the switch is called there (a test checks that, so the two cannot drift apart). Panels a mod
+adds to the UI Panels page get a row only when that mod is in effect too.
 
 ## License
 
