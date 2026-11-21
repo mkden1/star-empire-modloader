@@ -1,4 +1,4 @@
-"""Tests for quick_bars_window.py - the KEY BINDINGS window: capture, unbind, reset, the list, the mouse, the chat command,
+"""Tests for quick_bars_window.py - the QUICK BARS window (the KEYS tab): capture, unbind, reset, the list, the mouse, the chat command,
 drawing, and the vanilla lines that open / draw / feed it."""
 
 from __future__ import annotations
@@ -432,7 +432,7 @@ class ButtonTests(Base):
         self.assertTrue(self.win._qb_confirm_all)
         self.press("reset_all")
         self.assertTrue(qk.table().is_default)
-        self.assertEqual(self.win._qb_status[0], "Every key is back to the game's default.")
+        self.assertEqual(self.win._qb_status[0], "Every key is back to the default.")
         self.assertEqual(kb.read_file(self.path)["keys"], {})
 
     def test_an_armed_reset_all_expires(self):
@@ -549,7 +549,7 @@ class CommandTests(Base):
         self.assertFalse(self.win._qb_open)
 
     def test_list_says_when_nothing_is_changed(self):
-        self.assertIn("Every key is the game's default", self.say("/keys list")[0])
+        self.assertIn("Every key is the default", self.say("/keys list")[0])
 
     def test_list_shows_what_was_changed_with_its_default(self):
         qk.set_binding("hotkey.dock", Combo(pygame.K_b, {"ctrl"}))
@@ -563,7 +563,7 @@ class CommandTests(Base):
 
     def test_reset_puts_every_default_back(self):
         qk.set_binding("hotkey.dock", Combo(pygame.K_b))
-        self.assertEqual(self.say("/keys reset"), ["Every key is back to the game's default."])
+        self.assertEqual(self.say("/keys reset"), ["Every key is back to the default."])
         self.assertTrue(qk.table().is_default)
 
     def test_an_unknown_word_shows_the_help(self):
@@ -591,7 +591,8 @@ class PatchedGameTests(unittest.TestCase):
                      'quick_bars_window.is_open(self), "", False),',
                      "self._menu_quick_bars_rect = item_rects[\"quick_bars\"]",
                      "_frame_events = quick_bars_window.filter_events(self, _frame_events)",
-                     'elif _cmd in ("keys", "keybinds"):',
+                     'elif _cmd in ("keys", "keybinds", "bars", "quickbars"):',
+                     "quick_bars_window.draw_bars(self, _frame)",
                      "quick_bars_window.handle_command(self, _msg)",
                      "quick_bars_window.toggle(self)",
                      "quick_bars_window.queue(self, _frame)",
@@ -599,7 +600,7 @@ class PatchedGameTests(unittest.TestCase):
             self.assertEqual(self.client.count(line), 1, line)
 
     def test_the_menu_row_and_its_rect_use_the_same_key(self):
-        self.assertIn('("quick_bars", "KEY BINDINGS"', self.client)
+        self.assertIn('("quick_bars", "QUICK BARS"', self.client)
         self.assertIn('item_rects["quick_bars"]', self.client)
 
     def test_the_click_hook_comes_before_the_menus_catch_all(self):

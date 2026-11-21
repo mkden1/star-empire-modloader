@@ -2,13 +2,15 @@
 
 Pure Python: pygame is imported only for its key codes, nothing here opens a window or reads the game.
 
-An ACTION is one thing a key can do. There are three kinds:
+An ACTION is one thing a key can do. There are four kinds:
 
   * ``hotkey``  - one of the game's one-press hotkeys (dock, cycle weapon, galaxy map ...). The game reads them as
                   ``event.key == pygame.K_r``, so a rebound hotkey is carried out by handing the game that key (the
                   action's DEFAULT key) in place of the one that was pressed: nothing of the game's own code changes.
-  * ``slot``    - slot N of the quick action bar (the tab it shows).
-  * ``tab``     - the quick action bar's next / previous tab.
+  * ``slot``    - slot N of the game's quick action bar (the tab it shows).
+  * ``tab``     - the game's quick action bar's next / previous tab.
+  * ``barslot`` - slot N of one of the EXTRA quick action bars the mod adds. Their actions exist only while the bar does, so
+                  a ``Table`` is built for the bars that exist (``Table(bars=...)``).
 
 A COMBO is a key plus the modifiers that must be held with it: ``Combo(K_r, {"ctrl"})`` is Ctrl+R.
 
@@ -150,9 +152,10 @@ class Action:
     id: str
     label: str
     group: str
-    kind: str                           # "hotkey" | "slot" | "tab"
+    kind: str                           # "hotkey" | "slot" | "tab" | "barslot"
     default: "Combo | None"
     arg: int = 0                        # a slot's index (0-9) or a tab's step (+1 / -1)
+    bar: str = ""                       # for a "barslot": the id of the extra quick action bar it belongs to
 
 
 GROUP_BAR = "Quick action bar"
@@ -198,10 +201,30 @@ def _build_catalog() -> "tuple[Action, ...]":
     return tuple(actions)
 
 
-CATALOG = _build_catalog()
+CATALOG = _build_catalog()                 # the actions every client has; extra bars add theirs (``catalog``)
 BY_ID = {a.id: a for a in CATALOG}
 # Every key an action uses by default: a press of one that no binding matches is swallowed (the action moved away).
 DEFAULT_KEYS = frozenset(a.default.key for a in CATALOG if a.default is not None)
+
+
+def bar_slot_id(bar_id: str, index: int) -> str:
+    return f"slot.{bar_id}.{index + 1}"
+
+
+def bar_actions(bars) -> "tuple[Action, ...]":
+    """The actions of the extra quick action bars: ten slots each, whose default keys are the number keys with the bar's own
+    modifiers (``bar.mods``, say Shift: Shift+1 ... Shift+0). *bars* are anything with ``id``, ``name`` and ``mods``."""
+    actions = []
+    for bar in bars:
+        mods = frozenset(bar.mods)
+        actions += [Action(bar_slot_id(bar.id, i), f"Slot {i + 1 if i < 9 else 0}", bar.name, "barslot",
+                           Combo(_SLOT_KEYS[i], mods), i, bar.id) for i in range(10)]
+    return tuple(actions)
+
+
+def catalog(bars=()) -> "tuple[Action, ...]":
+    """Every action there is: the base ones, then each extra bar's ten slots."""
+    return CATALOG + bar_actions(bars)
 
 
 # ── the table ────────────────────────────────────────────────────────────────
@@ -213,14 +236,24 @@ class Resolution:
 
 
 class Table:
-    """Every action's combo now: the defaults with the player's changes laid over them."""
+    """Every action's combo now: the defaults with the player's changes laid over them.
 
-    def __init__(self, overrides: "dict | None" = None):
+    The actions are the base ones plus the ten slots of each extra quick action bar passed as *bars* (anything with ``id``,
+    ``name`` and ``mods``). A saved change for an action this table does not have (an extra bar of another account, a bar that
+    is not loaded yet) is kept as it was saved and written back with the rest, so changing one binding never loses another
+    account's."""
+
+    def __init__(self, overrides: "dict | None" = None, bars=(), unknown: "dict | None" = None):
+        self.catalog = catalog(bars)
+        self.by_id = {a.id: a for a in self.catalog}
+        self.default_keys = frozenset(a.default.key for a in self.catalog if a.default is not None)
+        self.has_bars = any(a.kind == "barslot" for a in self.catalog)
+        self.unknown: dict = dict(unknown or {})
         self.overrides: dict = {}
-        self.bindings: dict = {a.id: a.default for a in CATALOG}
+        self.bindings: dict = {a.id: a.default for a in self.catalog}
         self._index: dict = {}
         for action_id, combo in (overrides or {}).items():
-            if action_id in BY_ID and (combo is None or isinstance(combo, Combo)):
+            if action_id in self.by_id and (combo is None or isinstance(combo, Combo)):
                 self.overrides[action_id] = combo
                 self.bindings[action_id] = combo
         self._reindex()
@@ -229,15 +262,15 @@ class Table:
         index: dict = {}
         for action_id, combo in self.bindings.items():
             if combo is not None:
-                index.setdefault(combo.key, {})[combo.mods] = BY_ID[action_id]
+                index.setdefault(combo.key, {})[combo.mods] = self.by_id[action_id]
         self._index = index
-        self.is_default = all(self.bindings[a.id] == a.default for a in CATALOG)
+        self.is_default = all(self.bindings[a.id] == a.default for a in self.catalog)
 
     def combo(self, action_id: str) -> "Combo | None":
         return self.bindings.get(action_id)
 
     def is_changed(self, action_id: str) -> bool:
-        return self.bindings.get(action_id) != BY_ID[action_id].default
+        return self.bindings.get(action_id) != self.by_id[action_id].default
 
     def holder(self, combo: Combo, ignoring: str = "") -> "Action | None":
         """The action that has exactly *combo* now (other than *ignoring*)."""
@@ -251,12 +284,12 @@ class Table:
             action = by_mods.get(frozenset(mods)) or by_mods.get(frozenset())
             if action is not None:
                 return Resolution(action)
-        return Resolution(None, swallow=key in DEFAULT_KEYS)
+        return Resolution(None, swallow=key in self.default_keys)
 
     def set(self, action_id: str, combo: "Combo | None") -> "list[Action]":
         """Bind *combo* (None: unbind) to an action; whatever else had exactly that combo loses it (unbound). Returns the
         actions that lost it. Raises ValueError for an unknown action or a combo that cannot be bound."""
-        if action_id not in BY_ID:
+        if action_id not in self.by_id:
             raise ValueError(f"unknown action {action_id!r}")
         if combo is not None and (combo.key in RESERVED_KEYS or combo.key in MODIFIER_KEYS):
             raise ValueError("that key is used by the game")
@@ -272,7 +305,7 @@ class Table:
 
     def reset(self, action_id: str) -> None:
         """Back to the default combo. If something else holds it now, that one is unbound (a combo has one action)."""
-        default = BY_ID[action_id].default
+        default = self.by_id[action_id].default
         if default is not None:
             other = self.holder(default, ignoring=action_id)
             if other is not None:
@@ -281,27 +314,43 @@ class Table:
         self._reindex()
 
     def reset_all(self) -> None:
+        """Every action this table has back to its default (what is saved for actions it does not have stays)."""
         self.overrides = {}
-        self.bindings = {a.id: a.default for a in CATALOG}
+        self.bindings = {a.id: a.default for a in self.catalog}
         self._reindex()
 
     def _store(self, action_id: str, combo: "Combo | None") -> None:
         self.bindings[action_id] = combo
-        if combo == BY_ID[action_id].default:
+        if combo == self.by_id[action_id].default:
             self.overrides.pop(action_id, None)
         else:
             self.overrides[action_id] = combo
 
     def to_json(self) -> dict:
-        return {action_id: combo_to_json(combo) for action_id, combo in self.overrides.items()}
+        out = dict(self.unknown)
+        out.update({action_id: combo_to_json(combo) for action_id, combo in self.overrides.items()})
+        return out
+
+    def with_bars(self, bars) -> "Table":
+        """The same changes, for a different set of extra bars."""
+        return Table.from_json(self.to_json(), bars)
 
     @classmethod
-    def from_json(cls, data) -> "Table":
+    def from_json(cls, data, bars=()) -> "Table":
         """The table a saved ``keys`` section stands for. An entry that is not usable is skipped; two actions saved with the
-        same combo (a hand edit) keep the first in catalog order, the other is unbound, so one combo never has two actions."""
+        same combo (a hand edit) keep the first in catalog order, the other is unbound, so one combo never has two actions.
+        An entry for an action there is no such action for (right now) is kept as it is, for ``to_json``."""
+        actions = catalog(bars)
+        known = {a.id for a in actions}
         overrides: dict = {}
+        unknown: dict = {}
         if isinstance(data, dict):
-            for action in CATALOG:
+            for action_id, entry in data.items():
+                if not isinstance(action_id, str) or action_id in known:
+                    continue
+                if entry is None or isinstance(entry, dict):
+                    unknown[action_id] = entry
+            for action in actions:
                 if action.id not in data:
                     continue
                 entry = data[action.id]
@@ -310,9 +359,9 @@ class Table:
                     continue
                 if combo != action.default:
                     overrides[action.id] = combo
-        table = cls(overrides)
+        table = cls(overrides, bars, unknown)
         seen: dict = {}
-        for action in CATALOG:
+        for action in table.catalog:
             combo = table.bindings[action.id]
             if combo is None:
                 continue
@@ -344,14 +393,30 @@ def read_file(path: str) -> dict:
     return data if isinstance(data, dict) else {}
 
 
-def write_section(path: str, section: str, value) -> None:
-    """Replace one section of the file and leave the others as they are. Read-modify-write, so two clients running from one
-    folder do not wipe each other's other sections; temp file and atomic replace, so a reader never sees half a file."""
-    data = read_file(path)
-    data["version"] = 1
-    data[section] = value
+def _write_all(path: str, data: dict) -> None:
+    """Temp file and atomic replace, so a reader (another client) never sees half a file."""
     os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
     tmp = f"{path}.{os.getpid()}.tmp"
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=1, sort_keys=True)
     os.replace(tmp, path)
+
+
+def write_section(path: str, section: str, value) -> None:
+    """Replace one section of the file and leave the others as they are. Read-modify-write, so two clients running from one
+    folder do not wipe each other's other sections."""
+    data = read_file(path)
+    data["version"] = 1
+    data[section] = value
+    _write_all(path, data)
+
+
+def write_entry(path: str, section: str, key: str, value) -> None:
+    """Replace one entry of a section that holds several (the bars of one account in ``bars``) and leave the others: two
+    clients on two accounts each keep their own."""
+    data = read_file(path)
+    data["version"] = 1
+    inner = data.get(section) if isinstance(data.get(section), dict) else {}
+    inner[key] = value
+    data[section] = inner
+    _write_all(path, data)

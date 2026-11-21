@@ -2,17 +2,17 @@
 
 @@ import quick_bars_window # MOD: key bindings, quick action bars @@
  from arena_client import ArenaClientMixin
-+import quick_bars_window  # MOD: rebind the quick action slots and the game's hotkeys, several quick action bars (quick_bars_window.py)
++import quick_bars_window  # MOD: extra quick action bars, rebindable slot keys and the game's hotkeys (quick_bars_window.py)
 +import quick_keys  # MOD: the key handling those bindings need (quick_keys.py)
 
 @@ self._menu_quick_bars_rect = None # MOD @@
              self._menu_shop_rect = None
 +            self._menu_quick_bars_rect = None   # MOD
 
-@@ # MOD: key bindings (quick_bars_window.py) @@
+@@ # MOD: quick bars and key bindings (quick_bars_window.py) @@
              ("market", "GLOBAL MARKET NETWORK", self._market_open, "", False),
-+            # MOD: key bindings (quick_bars_window.py)
-+            ("quick_bars", "KEY BINDINGS", quick_bars_window.is_open(self), "", False),
++            # MOD: quick bars and key bindings (quick_bars_window.py)
++            ("quick_bars", "QUICK BARS", quick_bars_window.is_open(self), "", False),
 
 @@ self._menu_quick_bars_rect = item_rects["quick_bars"] # MOD @@
          self._menu_shop_rect = item_rects.get("shop")
@@ -22,19 +22,19 @@
              _frame_events = pygame.event.get()
 +            _frame_events = quick_bars_window.filter_events(self, _frame_events)   # MOD: the Key Bindings window's clicks and keys
 
-@@ elif _cmd in ("keys", "keybinds"): @@
+@@ elif _cmd in ("keys", "keybinds", "bars", "quickbars"): @@
                                                  "/roll is available in System and Squad chat.",
                                                  (255, 180, 80))
-+                                    elif _cmd in ("keys", "keybinds"):
-+                                        # MOD: /keys - the Key Bindings window (quick_bars_window.py)
++                                    elif _cmd in ("keys", "keybinds", "bars", "quickbars"):
++                                        # MOD: /keys, /bars - the Quick Bars window (quick_bars_window.py)
 +                                        quick_bars_window.handle_command(self, _msg)
 
-@@ if (self._menu_open ... KEY BINDINGS @@
+@@ if (self._menu_open ... QUICK BARS @@
 +                    if (self._menu_open
 +                            and _gui_route_allows("menu_popup")
 +                            and getattr(self, "_menu_quick_bars_rect", None)
 +                            and self._menu_quick_bars_rect.collidepoint(event.pos)):
-+                        # MOD: KEY BINDINGS (quick_bars_window.py)
++                        # MOD: QUICK BARS (quick_bars_window.py)
 +                        self._menu_open = False
 +                        quick_bars_window.toggle(self)
 +                        continue
@@ -44,7 +44,13 @@
 
 @@ quick_bars_window.queue(self, _frame) # MOD @@ order=0
                  _managed_draw_wrapper = _profile_managed_draw
-+            quick_bars_window.queue(self, _frame)   # MOD: the Key Bindings window joins the retained windows
++            quick_bars_window.queue(self, _frame)   # MOD: the Quick Bars window joins the retained windows
+
+@@ the extra quick action bars are drawn right after the game's own @@
+                     lambda _draw_frame: self._draw_hotbar(
+                         _draw_frame, draw_animation=False, tick_press=False))
+                 self._draw_hotbar_animation(_frame)
++                quick_bars_window.draw_bars(self, _frame)   # MOD: the extra quick action bars (extra_bars.py)
 
 @@ the key bindings: after the repeat guard, before the one-press hotkeys @@
                      if event.key in self._keys_held:
@@ -58,13 +64,14 @@
 
                      # Ctrl+Space engages a 60-second primary-weapon hold against
 
-@@ # MOD: the KEY BINDINGS window - rebind the quick action slots and the game's hotkeys @@
+@@ # MOD: the QUICK BARS window - extra quick action bars, rebindable slot keys and hotkeys @@
      _show_use_launcher_message()
      sys.exit(1)
 
 
-+# MOD: the KEY BINDINGS window - rebind the quick action slots and the game's hotkeys (quick_bars_window.py, quick_keys.py).
-+# Keeps the flight keys quiet while a new key is awaited; globals(), not sys.modules[__name__] (run_client.py exec()s this
-+# file as __main__). Off with STAR_EMPIRE_NO_QUICK_BARS=1 (the key handling alone: STAR_EMPIRE_NO_QUICK_KEYS=1).
++# MOD: the QUICK BARS window - extra quick action bars, rebindable slot keys and the game's hotkeys (quick_bars_window.py,
++# extra_bars.py, quick_keys.py). Keeps the flight keys quiet while a new key is awaited or a name typed; globals(), not
++# sys.modules[__name__] (run_client.py exec()s this file as __main__). Off with STAR_EMPIRE_NO_QUICK_BARS=1 (the key
++# handling alone: STAR_EMPIRE_NO_QUICK_KEYS=1, the extra bars alone: STAR_EMPIRE_NO_EXTRA_BARS=1).
 +quick_bars_window.install(SolarSystemWindow, globals())
 +

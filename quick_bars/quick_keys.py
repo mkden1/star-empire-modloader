@@ -32,6 +32,7 @@ _failed = False
 _path: "str | None" = None
 _raw: dict = {}                       # the file's "keys" section as saved; turned into a Table on first use (pygame is up)
 _table: "kb.Table | None" = None
+_bars: list = []                      # the extra quick action bars the logged-in account has (extra_bars.py): the table has their slots
 _submit = None
 
 
@@ -63,17 +64,36 @@ def load(path_: "str | None" = None) -> None:
 def table() -> "kb.Table":
     global _table
     if _table is None:
-        _table = kb.Table.from_json(_raw)
+        _table = kb.Table.from_json(_raw, _bars)
     return _table
 
 
+def set_bars(bars) -> None:
+    """The account's extra bars are these: their slots join the table (every change made so far stays)."""
+    global _table, _bars
+    changes = _table.to_json() if _table is not None else _raw
+    _bars = list(bars)
+    _table = kb.Table.from_json(changes, _bars)
+
+
+def forget_bar(bar_id: str) -> None:
+    """A bar was deleted: drop the keys that were changed for its slots too, and save."""
+    global _table
+    prefix = f"slot.{bar_id}."
+    _table = kb.Table.from_json({k: v for k, v in table().to_json().items() if not k.startswith(prefix)}, _bars)
+    _save()
+
+
+def submitter():
+    """What queues a file write on the background writer (``scan_writer.submit``; a test passes its own)."""
+    if _submit is not None:
+        return _submit
+    from scan_writer import submit
+    return submit
+
+
 def _save() -> None:
-    snapshot = table().to_json()
-    target = path()
-    submit = _submit
-    if submit is None:
-        from scan_writer import submit
-    submit(_write, target, snapshot)
+    submitter()(_write, path(), table().to_json())
 
 
 def _write(target: str, snapshot: dict) -> None:
@@ -91,8 +111,8 @@ def configure_for_tests(path_: str, submit=None) -> None:
 
 
 def reset_for_tests() -> None:
-    global _path, _raw, _table, _submit, _failed
-    _path, _raw, _table, _submit, _failed = None, {}, None, None, False
+    global _path, _raw, _table, _bars, _submit, _failed
+    _path, _raw, _table, _bars, _submit, _failed = None, {}, None, [], None, False
 
 
 # ── changing the bindings (the window calls these) ───────────────────────────
@@ -122,6 +142,8 @@ def _carry_out_slot(win, index: int, event) -> bool:
     needed = ("_hotbar_shown_offset", "_hotbar_activate_slot", "_hotbar_key_hold_begin")
     if not all(hasattr(win, name) for name in needed):
         return False
+    import extra_bars
+    extra_bars.end_holds(win, keep="main")                 # one held key at a time, whichever bar it is on
     slot = win._hotbar_shown_offset() + index
     win._hotbar_activate_slot(slot, from_key=True)
     win._hotbar_key_hold_begin(slot, event.key)
@@ -141,7 +163,7 @@ def on_key_down(win, event):
         return event, False
     try:
         current = table()
-        if current.is_default:
+        if current.is_default and not current.has_bars:
             return event, False
         result = current.resolve(event.key, kb.mods_from_event(getattr(event, "mod", 0)))
         action = result.action
@@ -153,6 +175,9 @@ def on_key_down(win, event):
             return _hotkey_event(event, action.default.key), False
         if action.kind == "slot":
             return event, _carry_out_slot(win, action.arg, event)
+        if action.kind == "barslot":
+            import extra_bars
+            return event, extra_bars.fire_slot(win, action.bar, action.arg, event)
         if action.kind == "tab":
             if not hasattr(win, "_hotbar_page"):
                 return event, False
@@ -164,16 +189,25 @@ def on_key_down(win, event):
         return event, False
 
 
+def _labels(current, bar_id: "str | None") -> tuple:
+    if bar_id:
+        return tuple(kb.short_label(current.combo(kb.bar_slot_id(bar_id, i))) for i in range(10))
+    return tuple(kb.short_label(current.combo(kb.slot_id(i))) for i in range(10))
+
+
 def label_key(win, value, *args, **kwargs):
     """Runs after the game's ``_hotbar_drawn_state`` (what the retained bar layer is keyed on): adds the ten slot labels, so the
-    bar repaints when a key changes. Nothing is added while every binding is the game's own."""
+    bar repaints when a key changes. Nothing is added to the game's own bar while every binding is its own; an extra bar always
+    gets its labels."""
     if not enabled():
         return None
     try:
+        import bar_context
         current = table()
-        if current.is_default:
+        bar_id = bar_context.current_bar_id()
+        if current.is_default and not bar_id:
             return None
-        return (*value, tuple(kb.short_label(current.combo(kb.slot_id(i))) for i in range(10)))
+        return (*value, _labels(current, bar_id))
     except Exception:
         _switch_off("label_key()")
         return None
@@ -190,11 +224,16 @@ HOOKS = (("Client", "SolarSystemWindow", "_hotbar_drawn_state", "label_key"),)
 
 
 def slot_label(win, index: int, default: str) -> str:
-    """The text on slot *index*'s key tab: the game's own number while no binding is changed, else the slot's combo."""
+    """The text on slot *index*'s key tab: on an extra bar always the key its slot has; on the game's bar its own number while no
+    binding is changed, else the slot's combo."""
     if not enabled():
         return default
     try:
+        import bar_context
         current = table()
+        bar_id = bar_context.current_bar_id()
+        if bar_id:
+            return kb.short_label(current.combo(kb.bar_slot_id(bar_id, index)))
         if current.is_default:
             return default
         return kb.short_label(current.combo(kb.slot_id(index)))
