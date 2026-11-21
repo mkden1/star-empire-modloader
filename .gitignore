@@ -54,6 +54,10 @@ ship_layouts_window.json.*.tmp
 range_rings.json
 range_rings.json.*.tmp
 
+# The saved UI layouts: where the HUD's windows sit, one entry per name (ui_layouts_window.py).
+ui_layouts.json
+ui_layouts.json.*.tmp
+
 # What the mod loader wrote at the last start-up (which mods were switched off and why), and the compiled patched code it
 # caches when custom_build/ does not exist.
 mods_report.txt
