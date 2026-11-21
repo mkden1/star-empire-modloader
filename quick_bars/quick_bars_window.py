@@ -35,6 +35,8 @@ import pygame
 import bars as bars_model
 import extra_bars
 import keybinds as kb
+import loadout_ops
+import loadouts as loadouts_model
 import quick_keys
 import window_geometry as wg
 from gui_window_manager import GuiLayer
@@ -44,13 +46,15 @@ logger = logging.getLogger(__name__)
 ID = "quick_bars"
 FIELD_KEY = "quick_bars_name"       # the name box's TextField in the window's text_field_host registry
 ENV_OFF = "STAR_EMPIRE_NO_QUICK_BARS"
-TABS = (("keys", "KEYS"), ("bars", "BARS"))
+TABS = (("keys", "KEYS"), ("bars", "BARS"), ("loadouts", "LOADOUTS"))
 
 _MIN_W, _MIN_H = 420, 320
 _DEFAULT_W, _DEFAULT_H = 460, 540
-ROW_H, GROUP_H, BAR_ROW_H = 24, 22, 40
+ROW_H, GROUP_H, BAR_ROW_H, LOADOUT_ROW_H = 24, 22, 40, 40
 CONFIRM_S = 3.0
 STATUS_S = 6.0
+DOUBLE_CLICK_S = 0.45
+REFRESH_S = 15.0              # re-read the loadouts file now and then: another client may have saved one
 
 _failed = False
 _windows: list = []            # weak references to every window that has used the feature
@@ -85,8 +89,11 @@ def _ensure(win) -> None:
     win._qb_rect = None
     win._qb_selected = None         # a key action id (KEYS tab)
     win._qb_bar_selected = None     # an extra bar id (BARS tab)
+    win._qb_loadout_selected = None  # a loadout id (LOADOUTS tab)
+    win._qb_confirm_loadout = None   # ("update" | "delete", loadout id, monotonic deadline)
+    win._qb_last_refresh = 0.0
     win._qb_capture = None          # the action id whose new key is being waited for
-    win._qb_input = None            # {"mode": "add"|"rename", "text": str, "target": id | None}; caret / selection live in the
+    win._qb_input = None            # {"mode": "add"|"rename"|"lsave"|"lrename", "text": str, "target": id | None}; caret / selection live in the
                                     # name box's TextField (FIELD_KEY, owned by this dict)
     win._qb_confirm_all = 0.0       # monotonic deadline of an armed RESET ALL
     win._qb_confirm_bar = None      # (bar id, monotonic deadline) of an armed DELETE
@@ -126,6 +133,8 @@ def open_window(win, tab: "str | None" = None) -> None:
     if win._qb_selected is None:
         win._qb_selected = kb.CATALOG[0].id
     _select_first_bar(win)
+    _select_loadout(win)
+    _refresh_loadouts(win)
     _manager_owner(win)
 
 
@@ -137,6 +146,7 @@ def close_window(win) -> None:
     win._qb_drag = None
     win._qb_confirm_all = 0.0
     win._qb_confirm_bar = None
+    win._qb_confirm_loadout = None
 
 
 def toggle(win, tab: "str | None" = None) -> None:
@@ -154,8 +164,10 @@ def set_tab(win, tab: str) -> None:
         win._qb_input = None
         win._qb_confirm_all = 0.0
         win._qb_confirm_bar = None
+        win._qb_confirm_loadout = None
         win._qb_scroll = 0
         _select_first_bar(win)
+        _select_loadout(win)
 
 
 def _manager_owner(win) -> None:
@@ -271,8 +283,25 @@ def mods_text(bar) -> str:
 
 
 def begin_input(win, mode: str) -> None:
-    """Open the name box for a new bar (``add``) or a new name for the selected one (``rename``)."""
+    """Open the name box for a new bar (``add``), a new name for the selected bar (``rename``), a new loadout (``lsave``) or a new name for
+    the selected loadout (``lrename``)."""
     rt = _runtime(win)
+    if mode in ("lsave", "lrename"):
+        store = loadout_ops.STORE
+        if mode == "lsave":
+            if not rt.account:
+                return
+            target, text = None, store.unique_name(f"Loadout {len(store.items) + 1}")
+        else:
+            item = selected_loadout(win)
+            if item is None:
+                return
+            target, text = item["id"], item["name"]
+        box = {"mode": mode, "text": text[:loadouts_model.MAX_NAME_LEN], "target": target}
+        win._qb_input = box
+        win._text_cursor_to_end(FIELD_KEY, box["text"], owner=box)
+        win._qb_confirm_loadout = None
+        return
     if mode == "add":
         if not rt.account or len(rt.barset) >= bars_model.MAX_BARS:
             return
@@ -295,6 +324,9 @@ def cancel_input(win) -> None:
 def commit_input(win) -> None:
     box = win._qb_input
     if box is None:
+        return
+    if box["mode"] in ("lsave", "lrename"):
+        _commit_loadout_input(win, box)
         return
     name = bars_model.clean_name(box["text"])
     if not name:
@@ -351,8 +383,111 @@ def select_bar(win, bar_id) -> None:
         win._qb_confirm_bar = None
 
 
+# ── the LOADOUTS tab: saved setups ───────────────────────────────────────────
+
+def loadout_items(win) -> tuple:
+    return loadout_ops.STORE.items
+
+
+def selected_loadout(win):
+    return loadout_ops.STORE.get(win._qb_loadout_selected)
+
+
+def _refresh_loadouts(win) -> None:
+    win._qb_last_refresh = time.monotonic()
+    loadout_ops.STORE.refresh()
+
+
+def _select_loadout(win) -> None:
+    """Keep the selection if it still exists; else the loadout that is what you have now; else the first."""
+    if win._qb_tab != "loadouts":
+        return
+    store = loadout_ops.STORE
+    if store.get(win._qb_loadout_selected) is not None or not store.items:
+        return
+    current = loadout_ops.match(win)
+    win._qb_loadout_selected = (current or store.items[0])["id"]
+
+
+def select_loadout(win, loadout_id) -> None:
+    if loadout_id != win._qb_loadout_selected:
+        win._qb_loadout_selected = loadout_id
+        win._qb_confirm_loadout = None
+
+
+def _commit_loadout_input(win, box) -> None:
+    name = loadouts_model.clean_name(box["text"])
+    if not name:
+        _say(win, "A loadout needs a name.", "warn")
+        return
+    win._qb_input = None
+    store = loadout_ops.STORE
+    if box["mode"] == "lrename":
+        saved = store.get(box["target"])
+        if saved is None:
+            return
+        taken = {d["name"].lower() for d in store.items if d["id"] != saved["id"]}
+        final = name if name.lower() not in taken else store.unique_name(name)
+        store.save({**saved, "name": final})
+        _say(win, f"Renamed to '{final}'.", "ok")
+        return
+    final = store.unique_name(name)
+    ok, text = loadout_ops.save_current(win, final)
+    if ok:
+        win._qb_loadout_selected = store.find(final)["id"]
+    _say(win, text, "ok" if ok else "warn")
+
+
+def _armed_loadout(win, action: str, loadout_id: str) -> bool:
+    """The first click on UPDATE / DELETE arms it; a second one within CONFIRM_S on the same loadout is the go-ahead."""
+    now = time.monotonic()
+    armed = win._qb_confirm_loadout
+    if armed is not None and armed[0] == action and armed[1] == loadout_id and now <= armed[2]:
+        win._qb_confirm_loadout = None
+        return True
+    win._qb_confirm_loadout = (action, loadout_id, now + CONFIRM_S)
+    return False
+
+
+def load_selected_loadout(win) -> None:
+    item = selected_loadout(win)
+    if item is not None:
+        ok, text = loadout_ops.load(win, item)
+        _say(win, text, "ok" if ok else "warn")
+
+
+def undo_loadout(win) -> None:
+    ok, text = loadout_ops.undo(win)
+    _say(win, text, "ok" if ok else "warn")
+
+
+def update_selected_loadout(win) -> None:
+    item = selected_loadout(win)
+    if item is not None and _armed_loadout(win, "update", item["id"]):
+        ok, text = loadout_ops.save_current(win, item["name"], target_id=item["id"])
+        _say(win, text, "ok" if ok else "warn")
+
+
+def delete_selected_loadout(win) -> None:
+    item = selected_loadout(win)
+    if item is not None and _armed_loadout(win, "delete", item["id"]):
+        loadout_ops.STORE.delete(item["id"])
+        win._qb_loadout_selected = None
+        _select_loadout(win)
+        _say(win, f"Deleted '{item['name']}'.", "ok")
+
+
 def button_enabled(win, name: str) -> bool:
     """Whether a button has anything to do (drawn dim and ignored when not)."""
+    if name.startswith("l_") or name == "lsave":
+        rt = _runtime(win)
+        if name == "lsave":
+            return bool(rt.account)
+        if name == "l_undo":
+            return rt.undo is not None
+        if name in ("l_load", "l_update"):
+            return bool(rt.account) and selected_loadout(win) is not None
+        return selected_loadout(win) is not None
     if name in ("unbind", "reset", "reset_all"):
         table = _table()
         chosen = win._qb_selected in table.by_id
@@ -379,6 +514,14 @@ def tick(win) -> None:
     if win._qb_tab == "bars" and selected_bar(win) is None:
         win._qb_bar_selected = None
         _select_first_bar(win)
+    if win._qb_confirm_loadout is not None and now > win._qb_confirm_loadout[2]:
+        win._qb_confirm_loadout = None
+    if win._qb_tab == "loadouts":
+        if now - win._qb_last_refresh >= REFRESH_S:
+            _refresh_loadouts(win)
+        if selected_loadout(win) is None:
+            win._qb_loadout_selected = None
+            _select_loadout(win)
 
 
 # ── geometry ─────────────────────────────────────────────────────────────────
@@ -405,14 +548,15 @@ def layout_rects(rect: pygame.Rect, s, tab: str = "keys") -> dict:
     header_h, status_h, button_h, tabs_h = s(34), s(20), s(26), s(24)
     body = pygame.Rect(rect.x + pad, rect.y + header_h + pad, rect.w - pad * 2, rect.h - header_h - pad * 2 - status_h)
     tabs = pygame.Rect(body.x, body.y, body.w, tabs_h)
-    tab_w = min(s(110), (tabs.w - gap) // 2)
+    tab_w = min(s(110), (tabs.w - gap * 2) // 3)
     top = tabs.bottom + gap
     buttons_y = body.bottom - button_h
     info = pygame.Rect(body.x, buttons_y - gap - s(32), body.w, s(32))
     close = pygame.Rect(rect.right - pad - s(22), rect.y + (header_h - s(20)) // 2, s(22), s(20))
     out = {"header": pygame.Rect(rect.x, rect.y, rect.w, header_h), "close": close, "body": body, "tabs": tabs,
            "tab_keys": pygame.Rect(tabs.x, tabs.y, tab_w, tabs_h),
-           "tab_bars": pygame.Rect(tabs.x + tab_w + gap, tabs.y, tab_w, tabs_h), "info": info,
+           "tab_bars": pygame.Rect(tabs.x + tab_w + gap, tabs.y, tab_w, tabs_h),
+           "tab_loadouts": pygame.Rect(tabs.x + (tab_w + gap) * 2, tabs.y, tab_w, tabs_h), "info": info,
            "status": pygame.Rect(rect.x + pad, rect.bottom - pad - status_h + pad // 2, rect.w - pad * 2, status_h)}
     if tab == "keys":
         third = (body.w - gap * 2) // 3
@@ -422,16 +566,24 @@ def layout_rects(rect: pygame.Rect, s, tab: str = "keys") -> dict:
                    reset_all=pygame.Rect(reset.right + gap, buttons_y, body.right - reset.right - gap, button_h))
         return out
     add = pygame.Rect(body.x, top, body.w, s(28))
+    ok = pygame.Rect(add.right - s(44) - s(40) - gap, add.y, s(40), add.h)
+    cancel = pygame.Rect(add.right - s(44), add.y, s(44), add.h)
+    out.update(add=add, field=pygame.Rect(add.x, add.y, ok.x - gap - add.x, add.h), ok=ok, cancel=cancel,
+               list=pygame.Rect(body.x, add.bottom + gap, body.w, info.y - gap - (add.bottom + gap)))
+    if tab == "loadouts":
+        fifth = (body.w - gap * 4) // 5
+        x = body.x
+        for index, name in enumerate(("l_load", "l_undo", "l_update", "l_rename", "l_delete")):
+            width = fifth if index < 4 else body.right - x
+            out[name] = pygame.Rect(x, buttons_y, width, button_h)
+            x += width + gap
+        return out
     quarter = (body.w - gap * 3) // 4
     visible = pygame.Rect(body.x, buttons_y, quarter, button_h)
     rename = pygame.Rect(visible.right + gap, buttons_y, quarter, button_h)
     place = pygame.Rect(rename.right + gap, buttons_y, quarter, button_h)
     delete = pygame.Rect(place.right + gap, buttons_y, body.right - place.right - gap, button_h)
-    ok = pygame.Rect(add.right - s(44) - s(40) - gap, add.y, s(40), add.h)
-    cancel = pygame.Rect(add.right - s(44), add.y, s(44), add.h)
-    out.update(add=add, field=pygame.Rect(add.x, add.y, ok.x - gap - add.x, add.h), ok=ok, cancel=cancel,
-               list=pygame.Rect(body.x, add.bottom + gap, body.w, info.y - gap - (add.bottom + gap)),
-               bar_visible=visible, bar_rename=rename, bar_place=place, bar_delete=delete)
+    out.update(bar_visible=visible, bar_rename=rename, bar_place=place, bar_delete=delete)
     return out
 
 
@@ -539,8 +691,10 @@ def _draw(win, screen) -> None:
 
     if tab == "keys":
         _draw_keys(win, screen, r, hits, mouse)
-    else:
+    elif tab == "bars":
         _draw_bars(win, screen, r, hits, mouse)
+    else:
+        _draw_loadouts(win, screen, r, hits, mouse)
 
     status = win._qb_status
     if status is not None:
@@ -721,6 +875,88 @@ def _draw_bars(win, screen, r, hits, mouse):
             hot=r["bar_delete"].collidepoint(mouse), armed=armed)
 
 
+# the LOADOUTS tab
+
+def _draw_loadouts(win, screen, r, hits, mouse):
+    c = _colours
+    s = win._s
+    rt = _runtime(win)
+    store = loadout_ops.STORE
+    if win._qb_input is not None:
+        box = win._qb_input
+        pygame.draw.rect(screen, c["header"], r["field"])
+        pygame.draw.rect(screen, c["accent"], r["field"], 1)
+        win._draw_text_field(FIELD_KEY, box["text"], screen, win._instrument_font(11, bold=True),
+                             r["field"].inflate(-s(12), 0), c["value"], hit_rect=r["field"], owner=box)
+        _button(win, screen, r["ok"], "OK", hot=r["ok"].collidepoint(mouse))
+        _button(win, screen, r["cancel"], "ESC", hot=r["cancel"].collidepoint(mouse))
+    else:
+        _button(win, screen, r["add"], "SAVE CURRENT", enabled=button_enabled(win, "lsave"), hot=r["add"].collidepoint(mouse))
+
+    area = r["list"]
+    pygame.draw.rect(screen, c["canvas"], area)
+    pygame.draw.rect(screen, c["steel"], area, 1)
+    items = store.items
+    current = loadout_ops.match(win, items) if rt.account else None
+    row_h = s(LOADOUT_ROW_H)
+    win._qb_max_scroll = max(0, len(items) * row_h - area.h)
+    win._qb_scroll = max(0, min(win._qb_scroll, win._qb_max_scroll))
+    previous = screen.get_clip()
+    screen.set_clip(area.inflate(-2, -2).clip(previous))
+    if not items:
+        message = "Loading..." if not store.loaded else "No loadouts yet"
+        _blit_text(win, screen, message, 11, c["caption"], area.x + s(10), area.y + s(10))
+        _blit_text(win, screen, "Arrange your bars, then SAVE CURRENT.", 10, c["caption"], area.x + s(10), area.y + s(28),
+                   max_w=area.w - s(16), bold=False)
+    now = time.time()
+    for index, item in enumerate(items):
+        row = pygame.Rect(area.x + 1, area.y + 1 + index * row_h - win._qb_scroll, area.w - 2, row_h)
+        if row.bottom < area.top or row.top > area.bottom:
+            continue
+        chosen = item["id"] == win._qb_loadout_selected
+        hovered = row.collidepoint(mouse) and area.collidepoint(mouse)
+        if chosen or hovered:
+            pygame.draw.rect(screen, (18, 58, 94) if chosen else (14, 29, 43), row)
+        if chosen:
+            pygame.draw.rect(screen, c["accent"], (row.x, row.y, s(3), row.h))
+        tag_w = 0
+        if current is not None and current["id"] == item["id"]:
+            tag_w = _blit_text(win, screen, "CURRENT", 9, c["ok"], row.right - s(8), row.y + s(5), right=True) + s(8)
+        _blit_text(win, screen, item["name"], 11, c["value"] if chosen else c["text"], row.x + s(10), row.y + s(4),
+                   max_w=row.w - s(20) - tag_w)
+        caption = f"{loadouts_model.summary(item)}  -  {loadouts_model.format_age(now - item['saved_at'])}"
+        _blit_text(win, screen, caption, 9, c["caption"], row.x + s(10), row.y + s(21), max_w=row.w - s(16), bold=False)
+        hits["rows"].append((row.clip(area), item["id"]))
+    screen.set_clip(previous)
+    if win._qb_max_scroll:
+        _scrollbar(win, screen, area, win._qb_scroll, win._qb_max_scroll)
+
+    info = r["info"]
+    chosen_item = selected_loadout(win)
+    if not rt.account:
+        first, colour1, second = "Each character has its own bars: log in to use loadouts.", c["text"], ""
+    elif chosen_item is None:
+        first, colour1 = "Arrange your bars, then SAVE CURRENT to keep this setup.", c["text"]
+        second = "LOAD puts a saved setup back; UNDO takes the last LOAD back."
+    elif current is not None and current["id"] == chosen_item["id"]:
+        first, colour1 = f"{chosen_item['name']} is what you have now.", c["ok"]
+        second = "Changes to your bars are not saved into it until you UPDATE."
+    else:
+        first, colour1 = f"LOAD replaces your bars with '{chosen_item['name']}'.", c["text"]
+        second = ("What you have now is saved as '" + current["name"] + "'." if current is not None
+                  else "What you have now is not saved as a loadout: SAVE CURRENT first, or UNDO after.")
+    _blit_text(win, screen, first, 10, colour1, info.x, info.y, max_w=info.w)
+    if second:
+        _blit_text(win, screen, second, 10, c["caption"] if "not saved" not in second else c["amber"], info.x, info.y + s(15),
+                   max_w=info.w, bold=False)
+
+    armed = win._qb_confirm_loadout
+    for key, label in (("l_load", "LOAD"), ("l_undo", "UNDO"), ("l_update", "UPDATE"), ("l_rename", "RENAME"), ("l_delete", "DELETE")):
+        is_armed = bool(armed and chosen_item is not None and armed[1] == chosen_item["id"] and key == "l_" + armed[0])
+        _button(win, screen, r[key], "SURE?" if is_armed else label, enabled=button_enabled(win, key),
+                hot=r[key].collidepoint(mouse), armed=is_armed)
+
+
 # ── input ────────────────────────────────────────────────────────────────────
 
 def _handle_key(win, event) -> bool:
@@ -737,7 +973,8 @@ def _handle_key(win, event) -> bool:
             cancel_input(win)
         else:
             # Typing, caret keys, selection and the clipboard are the shared TextField's (text_field_host.py).
-            box["text"] = win._apply_text_edit(FIELD_KEY, box["text"], event, max_length=bars_model.MAX_NAME_LEN, owner=box).text
+            limit = loadouts_model.MAX_NAME_LEN if box["mode"] in ("lsave", "lrename") else bars_model.MAX_NAME_LEN
+            box["text"] = win._apply_text_edit(FIELD_KEY, box["text"], event, max_length=limit, owner=box).text
         return True
     if win._qb_capture is None:
         return False
@@ -770,7 +1007,7 @@ def _click(win, pos) -> None:
         close_window(win)
         return
     box = win._qb_input
-    if box is not None and hits.get("tab") == "bars":
+    if box is not None and hits.get("tab") in ("bars", "loadouts"):
         if r["ok"].collidepoint(pos):
             commit_input(win)
         elif r["cancel"].collidepoint(pos):
@@ -784,8 +1021,10 @@ def _click(win, pos) -> None:
             return
     if hits.get("tab") == "keys":
         _click_keys(win, pos, r, hits)
-    else:
+    elif hits.get("tab") == "bars":
         _click_bars(win, pos, r, hits)
+    else:
+        _click_loadouts(win, pos, r, hits)
 
 
 def _click_keys(win, pos, r, hits) -> None:
@@ -815,6 +1054,30 @@ def _click_bars(win, pos, r, hits) -> None:
     for rect, bar_id in hits.get("rows", ()):
         if rect.collidepoint(pos):
             select_bar(win, bar_id)
+            return
+
+
+def _click_loadouts(win, pos, r, hits) -> None:
+    if r["add"].collidepoint(pos):
+        if button_enabled(win, "lsave"):
+            begin_input(win, "lsave")
+        return
+    for key, action in (("l_load", load_selected_loadout), ("l_undo", undo_loadout), ("l_update", update_selected_loadout),
+                        ("l_rename", lambda w: begin_input(w, "lrename")), ("l_delete", delete_selected_loadout)):
+        if r[key].collidepoint(pos):
+            if button_enabled(win, key):
+                action(win)
+            return
+    for rect, loadout_id in hits.get("rows", ()):
+        if rect.collidepoint(pos):
+            now = time.monotonic()
+            last = getattr(win, "_qb_last_click", None)
+            select_loadout(win, loadout_id)
+            if last is not None and last[0] == loadout_id and now - last[1] <= DOUBLE_CLICK_S and button_enabled(win, "l_load"):
+                win._qb_last_click = None                      # a double click loads it
+                load_selected_loadout(win)
+            else:
+                win._qb_last_click = (loadout_id, now)
             return
 
 
@@ -970,6 +1233,8 @@ def handle_command(win, text: str = "") -> None:
         rest = parts[2].strip() if len(parts) > 2 else ""
         if command in ("bars", "quickbars"):
             _bars_command(win, verb, rest)
+        elif command in ("loadout", "loadouts"):
+            _loadout_command(win, verb, rest)
         else:
             _keys_command(win, verb)
     except Exception:
@@ -992,6 +1257,50 @@ def _keys_command(win, verb: str) -> None:
         win.chat_log("Every key is back to the default.", _OK)
     else:
         win.chat_log(_HELP_KEYS, _INFO)
+
+
+_HELP_LOADOUTS = ("/loadout  (window)   |   /loadout list   |   /loadout save <name>   |   /loadout load <name>   |   "
+                  "/loadout undo   |   /loadout next   |   /loadout prev")
+
+
+def _loadout_command(win, verb: str, rest: str) -> None:
+    store = loadout_ops.STORE
+    if not verb:
+        toggle(win, "loadouts")
+    elif verb in ("list", "ls"):
+        if not store.loaded:
+            win.chat_log("Still loading the saved loadouts; try again in a moment.", _WARN)
+        elif not store.items:
+            win.chat_log("No loadouts saved yet.  " + _HELP_LOADOUTS, _INFO)
+        else:
+            current = loadout_ops.match(win)
+            for item in store.items:
+                here = "   <- what you have now" if current is not None and current["id"] == item["id"] else ""
+                win.chat_log(f"  {item['name']}   {loadouts_model.summary(item)}{here}", _INFO)
+    elif verb == "save":
+        wanted = loadouts_model.clean_name(rest)
+        if not wanted:
+            win.chat_log("Usage: /loadout save <name>", _WARN)
+            return
+        existing = store.find(wanted)
+        exact = existing is not None and existing["name"].lower() == wanted.lower()
+        ok, text = loadout_ops.save_current(win, wanted, target_id=existing["id"] if exact else None)
+        win.chat_log(text, _OK if ok else _WARN)
+    elif verb in ("load", "use"):
+        item = store.find(rest)
+        if item is None:
+            win.chat_log(f"No loadout called '{rest}'. /loadout list shows them." if rest else "Usage: /loadout load <name>", _WARN)
+        else:
+            win._qb_loadout_selected = item["id"]
+            ok, text = loadout_ops.load(win, item)
+            win.chat_log(text, _OK if ok else _WARN)
+    elif verb == "undo":
+        ok, text = loadout_ops.undo(win)
+        win.chat_log(text, _OK if ok else _WARN)
+    elif verb in ("next", "prev", "previous"):
+        loadout_ops.cycle(win, 1 if verb == "next" else -1)
+    else:
+        win.chat_log(_HELP_LOADOUTS, _INFO)
 
 
 def _bars_command(win, verb: str, rest: str) -> None:
@@ -1034,6 +1343,7 @@ def install(window_cls, client_globals=None) -> bool:
     quick_keys.load()
     quick_keys.install(window_cls)
     extra_bars.install(window_cls)
+    loadout_ops.STORE.refresh()                                     # (so a key that loads the next loadout works before the window is opened)
     if client_globals is not None and "_flight_text_entry_active" in client_globals:
         gate = client_globals["_flight_text_entry_active"]
 

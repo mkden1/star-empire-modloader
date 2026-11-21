@@ -2,13 +2,14 @@
 
 Pure Python: pygame is imported only for its key codes, nothing here opens a window or reads the game.
 
-An ACTION is one thing a key can do. There are four kinds:
+An ACTION is one thing a key can do. There are five kinds:
 
   * ``hotkey``  - one of the game's one-press hotkeys (dock, cycle weapon, galaxy map ...). The game reads them as
                   ``event.key == pygame.K_r``, so a rebound hotkey is carried out by handing the game that key (the
                   action's DEFAULT key) in place of the one that was pressed: nothing of the game's own code changes.
   * ``slot``    - slot N of the game's quick action bar (the tab it shows).
   * ``tab``     - the game's quick action bar's next / previous tab.
+  * ``loadout`` - load the next / previous saved loadout (a whole setup of bars, see loadouts.py), by name order.
   * ``barslot`` - slot N of one of the EXTRA quick action bars the mod adds. Their actions exist only while the bar does, so
                   a ``Table`` is built for the bars that exist (``Table(bars=...)``).
 
@@ -152,7 +153,7 @@ class Action:
     id: str
     label: str
     group: str
-    kind: str                           # "hotkey" | "slot" | "tab" | "barslot"
+    kind: str                           # "hotkey" | "slot" | "tab" | "loadout" | "barslot"
     default: "Combo | None"
     arg: int = 0                        # a slot's index (0-9) or a tab's step (+1 / -1)
     bar: str = ""                       # for a "barslot": the id of the extra quick action bar it belongs to
@@ -160,6 +161,7 @@ class Action:
 
 GROUP_BAR = "Quick action bar"
 GROUP_HOTKEYS = "Game hotkeys"
+GROUP_LOADOUTS = "Loadouts"
 
 # The game's one-press hotkeys: (id, label, default key). They are the ``elif event.key == pygame.K_x`` branches of the
 # event loop (a test checks this list against the game's own code, so a game update that adds one says so).
@@ -198,6 +200,8 @@ def _build_catalog() -> "tuple[Action, ...]":
     actions.append(Action("tab.next", "Next tab", GROUP_BAR, "tab", None, 1))
     actions.append(Action("tab.prev", "Previous tab", GROUP_BAR, "tab", None, -1))
     actions += [Action(f"hotkey.{name}", label, GROUP_HOTKEYS, "hotkey", Combo(key)) for name, label, key in HOTKEYS]
+    actions.append(Action("loadout.next", "Next loadout", GROUP_LOADOUTS, "loadout", None, 1))
+    actions.append(Action("loadout.prev", "Previous loadout", GROUP_LOADOUTS, "loadout", None, -1))
     return tuple(actions)
 
 
@@ -400,6 +404,17 @@ def _write_all(path: str, data: dict) -> None:
     with open(tmp, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=1, sort_keys=True)
     os.replace(tmp, path)
+
+
+def delete_entry(path: str, section: str, key: str) -> None:
+    """Remove one entry of a section that holds several (a loadout of ``loadouts``, an account's undo of ``previous``); the rest stay."""
+    data = read_file(path)
+    inner = data.get(section)
+    if not isinstance(inner, dict) or key not in inner:
+        return
+    del inner[key]
+    data["version"] = 1
+    _write_all(path, data)
 
 
 def write_section(path: str, section: str, value) -> None:

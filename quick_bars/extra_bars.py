@@ -31,6 +31,7 @@ import pygame
 import bar_context as bc
 import bars as bars_model
 import keybinds as kb
+import loadouts as loadouts_model
 import quick_keys
 from gui_window_manager import GuiLayer
 
@@ -41,6 +42,7 @@ BAR_ID_PREFIX = "quickbar:"
 
 _failed = False
 _raw: dict = {}                       # the file's "bars" section: account name -> that account's saved set
+_previous: dict = {}                  # the file's "previous" section: account name -> the setup a loadout load replaced (its undo)
 
 
 def _switch_off(where: str) -> None:
@@ -55,15 +57,16 @@ def enabled() -> bool:
 
 
 def load() -> None:
-    """Read every account's saved bars (a small file, once, at start-up)."""
-    global _raw
+    """Read every account's saved bars and loadout undo (a small file, once, at start-up)."""
+    global _raw, _previous
     data = kb.read_file(quick_keys.path())
     _raw = data.get("bars") if isinstance(data.get("bars"), dict) else {}
+    _previous = data.get("previous") if isinstance(data.get("previous"), dict) else {}
 
 
 def reset_for_tests() -> None:
-    global _failed, _raw
-    _failed, _raw = False, {}
+    global _failed, _raw, _previous
+    _failed, _raw, _previous = False, {}, {}
 
 
 # ── the runtime of one window ────────────────────────────────────────────────
@@ -73,6 +76,7 @@ class Runtime:
         self.account = None
         self.barset = bars_model.BarSet()
         self.views: dict = {}
+        self.undo: "dict | None" = None          # the setup the last loadout load replaced (loadout_ops.undo puts it back)
         self.press_bar: "str | None" = None      # the bar a mouse press began on
         self.drag: "dict | None" = None          # a bar being moved by its padding
         self.size = (0, 0)                       # the screen, as of the last frame drawn
@@ -115,6 +119,7 @@ def ensure_loaded(win) -> Runtime:
         rt.barset = bars_model.BarSet.from_json(_raw.get(account) if account else None)
         rt.views = {}
         rt.press_bar = rt.drag = None
+        rt.undo = loadouts_model.clean_setup(_previous.get(account)) if account else None
         quick_keys.set_bars(list(rt.barset))
     return rt
 
@@ -162,6 +167,53 @@ def rename_bar(win, bar_id: str, name: str) -> "str | None":
     return final
 
 
+def replace_set(win, bars_json: list, keys_json: dict) -> None:
+    """A loadout was loaded: the account's extra bars are now exactly *bars_json*, with exactly the slot keys *keys_json* says. Saves.
+    Raises ValueError when no account is logged in (the bars are kept per account)."""
+    rt = ensure_loaded(win)
+    if not rt.account:
+        raise ValueError("no account")
+    old_ids = [b.id for b in rt.barset]
+    rt.barset = bars_model.BarSet.from_json({"bars": bars_json})
+    rt.views = {}
+    rt.press_bar = rt.drag = None
+    quick_keys.replace_bar_keys(old_ids, list(rt.barset), keys_json)
+    _save(win)
+
+
+def save_undo(win, setup: dict) -> None:
+    """Keep *setup* (what a loadout load is about to replace) as the account's undo, in memory and in the file."""
+    global _previous
+    rt = ensure_loaded(win)
+    rt.undo = setup
+    if rt.account:
+        _previous = {**_previous, rt.account: setup}
+        quick_keys.submitter()(_write_entry, quick_keys.path(), "previous", rt.account, setup)
+
+
+def clear_undo(win) -> None:
+    global _previous
+    rt = ensure_loaded(win)
+    rt.undo = None
+    if rt.account:
+        _previous = {k: v for k, v in _previous.items() if k != rt.account}
+        quick_keys.submitter()(_delete_entry, quick_keys.path(), "previous", rt.account)
+
+
+def _write_entry(path: str, section: str, key: str, value) -> None:
+    try:
+        kb.write_entry(path, section, key, value)
+    except Exception:
+        logger.exception("extra_bars: could not save %s", path)
+
+
+def _delete_entry(path: str, section: str, key: str) -> None:
+    try:
+        kb.delete_entry(path, section, key)
+    except Exception:
+        logger.exception("extra_bars: could not save %s", path)
+
+
 def set_visible(win, bar_id: str, visible: bool) -> None:
     rt = ensure_loaded(win)
     bar = rt.barset.get(bar_id)
@@ -176,6 +228,43 @@ def reset_place(win, bar_id: str) -> None:
     rt = ensure_loaded(win)
     rt.barset.set_place(bar_id, None, None)
     _save(win)
+
+
+# ── the UI Layouts mod's view of the bars ────────────────────────────────────
+
+def layout_capture(win) -> "dict | None":
+    """Where the extra bars are, for a layout of the UI Layouts mod (it looks this function up by name, when that mod is installed):
+    each bar's id, its key set and its place. Only places: a layout moves windows, it does not change what is in them or whether
+    they are shown. None when there are no bars (or none are loaded yet)."""
+    rt = _runtime_of(win)
+    if rt is None or not len(rt.barset):
+        return None
+    return {"bars": [{"id": b.id, "mods": list(b.mods), "fx": b.fx, "fy": b.fy} for b in rt.barset]}
+
+
+def layout_apply(win, data) -> None:
+    """Put the extra bars where a layout of the UI Layouts mod had them. A bar finds its place by its id and, failing that, by its key
+    set (the Shift bar, the Ctrl bar ...), so a layout made with one character's bars also fits another's. A bar the layout does not
+    know stays where it is. Fractions of the screen, so there is nothing to fit to another window size."""
+    rt = _runtime_of(win)
+    items = data.get("bars") if isinstance(data, dict) else None
+    if rt is None or not isinstance(items, list):
+        return
+    by_id = {i["id"]: i for i in items if isinstance(i, dict) and isinstance(i.get("id"), str)}
+    by_mods: dict = {}
+    for item in items:
+        mods = item.get("mods") if isinstance(item, dict) else None
+        if isinstance(mods, list):
+            by_mods.setdefault(tuple(mods), item)
+    moved = False
+    for bar in rt.barset:
+        entry = by_id.get(bar.id) or by_mods.get(tuple(bar.mods))
+        if entry is not None:
+            rt.barset.set_place(bar.id, entry.get("fx"), entry.get("fy"))
+            moved = True
+    if moved:
+        rt.drag = None                                    # a bar that was being dragged is where the layout says now
+        _save(win)
 
 
 # ── placing and drawing ──────────────────────────────────────────────────────

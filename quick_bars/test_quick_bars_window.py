@@ -213,13 +213,13 @@ class GeometryTests(unittest.TestCase):
 class ViewTests(unittest.TestCase):
     def test_the_list_is_a_group_title_then_its_actions_for_every_action(self):
         rows = qw.view_rows()
-        self.assertEqual([d for k, d in rows if k == "group"], [kb.GROUP_BAR, kb.GROUP_HOTKEYS])
+        self.assertEqual([d for k, d in rows if k == "group"], [kb.GROUP_BAR, kb.GROUP_HOTKEYS, kb.GROUP_LOADOUTS])
         self.assertEqual([d.id for k, d in rows if k == "action"], [a.id for a in kb.CATALOG])
         self.assertEqual(rows[0], ("group", kb.GROUP_BAR))
 
     def test_the_height_adds_up(self):
         s = lambda px: px
-        self.assertEqual(qw.view_height(s), 2 * qw.GROUP_H + len(kb.CATALOG) * qw.ROW_H)
+        self.assertEqual(qw.view_height(s), 3 * qw.GROUP_H + len(kb.CATALOG) * qw.ROW_H)
 
 
 # ── opening and drawing ──────────────────────────────────────────────────────
@@ -591,7 +591,7 @@ class PatchedGameTests(unittest.TestCase):
                      'quick_bars_window.is_open(self), "", False),',
                      "self._menu_quick_bars_rect = item_rects[\"quick_bars\"]",
                      "_frame_events = quick_bars_window.filter_events(self, _frame_events)",
-                     'elif _cmd in ("keys", "keybinds", "bars", "quickbars"):',
+                     'elif _cmd in ("keys", "keybinds", "bars", "quickbars", "loadout", "loadouts"):',
                      "quick_bars_window.draw_bars(self, _frame)",
                      "quick_bars_window.handle_command(self, _msg)",
                      "quick_bars_window.toggle(self)",

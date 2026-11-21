@@ -81,8 +81,8 @@ class CatalogTests(unittest.TestCase):
         self.assertEqual(len(ids), len(set(ids)))
         for a in kb.CATALOG:
             self.assertTrue(a.label.strip())
-            self.assertIn(a.kind, ("hotkey", "slot", "tab"))
-            self.assertIn(a.group, (kb.GROUP_BAR, kb.GROUP_HOTKEYS))
+            self.assertIn(a.kind, ("hotkey", "slot", "tab", "loadout"))
+            self.assertIn(a.group, (kb.GROUP_BAR, kb.GROUP_HOTKEYS, kb.GROUP_LOADOUTS))
 
     def test_the_defaults_are_the_games_own_and_none_clash(self):
         defaults = [a.default for a in kb.CATALOG if a.default is not None]

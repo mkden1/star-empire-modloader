@@ -141,9 +141,11 @@ class BarSet:
         return bar.name
 
     def set_place(self, bar_id, fx, fy) -> None:
+        """Both fractions or neither (None, None: the default place); half a place is no place."""
         bar = self.get(bar_id)
         if bar is not None:
-            bar.fx, bar.fy = _fraction(fx), _fraction(fy)
+            fx, fy = _fraction(fx), _fraction(fy)
+            bar.fx, bar.fy = (fx, fy) if fx is not None and fy is not None else (None, None)
 
     def to_json(self) -> dict:
         return {"version": 1, "bars": [b.to_json() for b in self.bars]}

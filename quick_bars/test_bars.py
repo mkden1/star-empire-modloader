@@ -103,6 +103,10 @@ class BarSetTests(unittest.TestCase):
         self.assertEqual((barset.get("b1").fx, barset.get("b1").fy), (None, None))
         barset.set_place("b1", "left", True)
         self.assertEqual((barset.get("b1").fx, barset.get("b1").fy), (None, None))
+        barset.set_place("b1", 0.4, None)                                          # half a place is no place
+        self.assertEqual((barset.get("b1").fx, barset.get("b1").fy), (None, None))
+        barset.set_place("b1", None, 0.4)
+        self.assertEqual((barset.get("b1").fx, barset.get("b1").fy), (None, None))
 
 
 class BindingTests(unittest.TestCase):

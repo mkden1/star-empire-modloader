@@ -84,6 +84,27 @@ def forget_bar(bar_id: str) -> None:
     _save()
 
 
+def _is_bar_key(action_id: str, bar_ids) -> bool:
+    return any(action_id.startswith(f"slot.{bar_id}.") for bar_id in bar_ids)
+
+
+def bar_key_overrides(bar_ids) -> dict:
+    """The keys changed for the slots of these bars, as they are saved (a loadout carries them with the bars)."""
+    return {k: v for k, v in table().to_json().items() if _is_bar_key(k, bar_ids)}
+
+
+def replace_bar_keys(old_ids, new_bars, keys_json: dict) -> None:
+    """The account's extra bars are now *new_bars* (a loadout was loaded): the keys changed for the old bars' slots go (a loadout that
+    had them has them saved), the new bars start with exactly the keys *keys_json* says, and everything else stays. Saves."""
+    global _table, _bars
+    gone = set(old_ids) | {b.id for b in new_bars}
+    changes = {k: v for k, v in table().to_json().items() if not _is_bar_key(k, gone)}
+    changes.update(keys_json or {})
+    _bars = list(new_bars)
+    _table = kb.Table.from_json(changes, _bars)
+    _save()
+
+
 def submitter():
     """What queues a file write on the background writer (``scan_writer.submit``; a test passes its own)."""
     if _submit is not None:
@@ -178,6 +199,9 @@ def on_key_down(win, event):
         if action.kind == "barslot":
             import extra_bars
             return event, extra_bars.fire_slot(win, action.bar, action.arg, event)
+        if action.kind == "loadout":
+            import loadout_ops
+            return event, loadout_ops.cycle(win, action.arg)
         if action.kind == "tab":
             if not hasattr(win, "_hotbar_page"):
                 return event, False

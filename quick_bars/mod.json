@@ -1,5 +1,5 @@
 {
-  "description": "QUICK BARS: extra quick action bars on screen, and rebindable slot keys and game hotkeys, with Ctrl / Shift / Alt (quick_bars_window.py, extra_bars.py, quick_keys.py).",
+  "description": "QUICK BARS: extra quick action bars on screen, rebindable slot keys and game hotkeys, and saveable loadouts of the whole setup (quick_bars_window.py, extra_bars.py, quick_keys.py, loadout_ops.py).",
   "requires": [
     "core"
   ],

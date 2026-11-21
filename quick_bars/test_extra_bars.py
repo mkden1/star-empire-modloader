@@ -776,6 +776,141 @@ class SetTests(Base):
         self.assertIsNone(eb.rename_bar(win, "x", "y"))
 
 
+# ── the UI Layouts mod's view of the bars ────────────────────────────────────
+
+class LayoutProviderTests(Base):
+    def setUp(self):
+        super().setUp()
+        self.given("Combat", "Mining")
+        self.draw()
+        self.rt().barset.set_place("b1", 0.25, 0.5)
+
+    def test_it_says_where_every_bar_is_and_only_that(self):
+        got = eb.layout_capture(self.win)
+        self.assertEqual(got, {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.25, "fy": 0.5},
+                                        {"id": "b2", "mods": ["ctrl"], "fx": None, "fy": None}]})
+        self.assertNotIn("slots", repr(got))                                    # a layout moves bars, it does not change their contents
+        self.assertNotIn("visible", repr(got))
+
+    def test_hidden_bars_have_places_too(self):
+        eb.set_visible(self.win, "b2", False)
+        self.assertEqual([b["id"] for b in eb.layout_capture(self.win)["bars"]], ["b1", "b2"])
+
+    def test_nothing_to_say_without_bars_or_before_they_are_loaded(self):
+        self.assertIsNone(eb.layout_capture(XWin()))                           # no runtime yet
+        self.given()
+        win = XWin()
+        self.draw(win)
+        self.assertIsNone(eb.layout_capture(win))                              # a runtime, no bars
+
+    def test_asking_changes_nothing(self):
+        win = XWin()
+        eb.layout_capture(win)
+        self.assertNotIn("_qb_extra", vars(win))
+        before = self.file_bars()
+        eb.layout_capture(self.win)
+        self.assertEqual(self.file_bars(), before)
+
+    def test_a_layout_puts_a_bar_back_by_its_id(self):
+        data = eb.layout_capture(self.win)
+        self.rt().barset.set_place("b1", 0.9, 0.9)
+        self.rt().barset.set_place("b2", 0.1, 0.1)
+        eb.layout_apply(self.win, data)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.25, 0.5))
+        self.assertEqual((self.bar("b2").fx, self.bar("b2").fy), (None, None))     # the default place is a place too
+        saved = self.file_bars()["bars"]
+        self.assertEqual((saved[0]["fx"], saved[0]["fy"]), (0.25, 0.5))
+
+    def test_a_bar_with_another_id_is_found_by_its_key_set(self):
+        """A layout made with another character's bars (other ids) still places the Shift bar and the Ctrl bar."""
+        data = {"bars": [{"id": "zzz1", "mods": ["shift"], "fx": 0.1, "fy": 0.2}, {"id": "zzz2", "mods": ["ctrl"], "fx": 0.7, "fy": 0.8}]}
+        eb.layout_apply(self.win, data)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.1, 0.2))
+        self.assertEqual((self.bar("b2").fx, self.bar("b2").fy), (0.7, 0.8))
+
+    def test_the_id_wins_over_the_key_set(self):
+        data = {"bars": [{"id": "b1", "mods": ["ctrl"], "fx": 0.1, "fy": 0.1}, {"id": "other", "mods": ["shift"], "fx": 0.9, "fy": 0.9}]}
+        eb.layout_apply(self.win, data)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.1, 0.1))
+
+    def test_a_bar_the_layout_does_not_know_stays_where_it_is(self):
+        eb.layout_apply(self.win, {"bars": [{"id": "b9", "mods": ["alt"], "fx": 0.3, "fy": 0.3}]})
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.25, 0.5))
+
+    def test_a_layout_of_nothing_changes_nothing(self):
+        before = self.file_bars()
+        for junk in (None, {}, [], "x", {"bars": "no"}, {"bars": [5, None, "x", {}]}, {"bars": [{"mods": "shift"}]}):
+            eb.layout_apply(self.win, junk)
+        self.assertEqual(self.file_bars(), before)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.25, 0.5))
+
+    def test_half_a_place_is_the_default_place(self):
+        eb.layout_apply(self.win, {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.4, "fy": None}]})
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (None, None))
+
+    def test_places_out_of_range_or_odd_are_made_safe(self):
+        eb.layout_apply(self.win, {"bars": [{"id": "b1", "fx": 7, "fy": -2}, {"id": "b2", "fx": "left", "fy": True}]})
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (1.0, 0.0))
+        self.assertEqual((self.bar("b2").fx, self.bar("b2").fy), (None, None))
+
+    def test_a_bar_that_is_being_dragged_is_dropped_where_the_layout_says(self):
+        self.draw(pressed=True)
+        self.down(self.padding())
+        self.assertIsNotNone(self.rt().drag)
+        eb.layout_apply(self.win, {"bars": [{"id": "b1", "fx": 0.5, "fy": 0.5}]})
+        self.assertIsNone(self.rt().drag)
+        self.draw()
+        pw, ph = bc.panel_size(self.win._s)
+        self.assertEqual(self.view().panel_rect.topleft, (round(0.5 * (1280 - pw)), round(0.5 * (720 - ph))))
+
+    def test_without_bars_a_layout_is_ignored(self):
+        win = XWin()
+        eb.layout_apply(win, {"bars": [{"id": "b1", "fx": 0.5, "fy": 0.5}]})
+        self.assertNotIn("_qb_extra", vars(win))
+
+    def test_the_ui_layouts_mod_finds_it_by_name(self):
+        """The two mods know each other only by this module name and these two function names."""
+        try:
+            import ui_layouts_window as ulw
+        except ImportError:
+            self.skipTest("the UI Layouts mod is not installed next to this one")
+        self.assertIn(("quick_bars", "extra_bars", "layout_capture", "layout_apply"), ulw.PROVIDERS)
+        import sys
+        self.assertIs(sys.modules["extra_bars"], eb)
+        self.assertEqual(ulw.capture_extras(self.win), {"quick_bars": eb.layout_capture(self.win)})
+
+    def test_a_layout_load_and_undo_through_the_ui_layouts_mod_move_the_bars(self):
+        """The real UI Layouts load, on a window that has these bars: it saves the places, a load puts them back, UNDO takes it back."""
+        try:
+            import ui_layouts_window as ulw
+        except ImportError:
+            self.skipTest("the UI Layouts mod is not installed next to this one")
+
+        class LayoutWin(XWin):
+            def _panel_layout_dict(self):
+                return {}
+
+            def apply_panel_layout(self, layout):
+                pass
+
+            def _save_options_fn(self, **kwargs):
+                pass
+
+        win = LayoutWin()
+        self.win = win
+        self.draw(win)
+        eb.runtime(win).barset.set_place("b1", 0.25, 0.5)
+        layout = ulw.ui_layouts.new_layout("Desk", (1280, 720), {}, {}, extras=ulw.capture_extras(win))
+        self.assertEqual(layout["extras"]["quick_bars"]["bars"][0]["fx"], 0.25)
+        eb.runtime(win).barset.set_place("b1", 0.9, 0.9)
+        ok, text = ulw.apply_layout(win, layout)
+        self.assertTrue(ok, text)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.25, 0.5))
+        self.assertEqual(win._ul_undo["extras"]["quick_bars"]["bars"][0]["fx"], 0.9)        # what it replaced
+        ulw.undo(win)
+        self.assertEqual((self.bar("b1").fx, self.bar("b1").fy), (0.9, 0.9))
+
+
 # ── the class-skill menu ─────────────────────────────────────────────────────
 
 class SkillMenuTests(Base):

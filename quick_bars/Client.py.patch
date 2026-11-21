@@ -22,11 +22,11 @@
              _frame_events = pygame.event.get()
 +            _frame_events = quick_bars_window.filter_events(self, _frame_events)   # MOD: the Key Bindings window's clicks and keys
 
-@@ elif _cmd in ("keys", "keybinds", "bars", "quickbars"): @@
+@@ elif _cmd in ("keys", "keybinds", "bars", "quickbars", "loadout", "loadouts"): @@
                                                  "/roll is available in System and Squad chat.",
                                                  (255, 180, 80))
-+                                    elif _cmd in ("keys", "keybinds", "bars", "quickbars"):
-+                                        # MOD: /keys, /bars - the Quick Bars window (quick_bars_window.py)
++                                    elif _cmd in ("keys", "keybinds", "bars", "quickbars", "loadout", "loadouts"):
++                                        # MOD: /keys, /bars, /loadout - the Quick Bars window (quick_bars_window.py)
 +                                        quick_bars_window.handle_command(self, _msg)
 
 @@ if (self._menu_open ... QUICK BARS @@

@@ -377,7 +377,7 @@ class KeysTabTests(Base):
         eb.ensure_loaded(self.win)
         rows = qw.view_rows(qk.table().catalog)
         groups = [d for k, d in rows if k == "group"]
-        self.assertEqual(groups, [kb.GROUP_BAR, kb.GROUP_HOTKEYS, "Combat", "Mining"])
+        self.assertEqual(groups, [kb.GROUP_BAR, kb.GROUP_HOTKEYS, kb.GROUP_LOADOUTS, "Combat", "Mining"])
         self.assertEqual(len([d for k, d in rows if k == "action" and d.kind == "barslot"]), 20)
 
     def test_a_bar_slot_can_be_given_a_key_and_the_window_names_the_bar(self):
@@ -412,7 +412,7 @@ class KeysTabTests(Base):
         eb.ensure_loaded(self.win)
         eb.remove_bar(self.win, "b1")
         groups = [d for k, d in qw.view_rows(qk.table().catalog) if k == "group"]
-        self.assertEqual(groups, [kb.GROUP_BAR, kb.GROUP_HOTKEYS, "Mining"])
+        self.assertEqual(groups, [kb.GROUP_BAR, kb.GROUP_HOTKEYS, kb.GROUP_LOADOUTS, "Mining"])
 
     def test_reset_all_resets_the_bars_keys_too(self):
         self.given("Combat")
