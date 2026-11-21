@@ -15,6 +15,7 @@ Standard library only.
 import os
 import shutil
 import sys
+import time
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _HERE)
@@ -23,6 +24,11 @@ import modloader  # noqa: E402
 ROOT = os.path.dirname(_HERE)
 AVAILABLE = os.path.join(ROOT, "mods_available")
 INSTALLED = os.path.join(ROOT, "mods")
+
+BACKUP_DIR = ".replaced"        # in mods/: the copy an update replaced, one generation per mod (a way back)
+LOCK_NAME = ".refresh.lock"     # in mods/: held while a launch refreshes the mods (several clients may start at once)
+LOCK_STALE_S = 120              # a lock older than this was left by a launch that died
+ENV_NO_REFRESH = "STAR_EMPIRE_NO_MOD_REFRESH"
 
 
 def available(available_dir: str = AVAILABLE):
@@ -74,9 +80,36 @@ def _files(folder: str) -> "dict[str, bytes]":
     return found
 
 
-def update(names=("all",), available_dir: str = AVAILABLE, installed_dir: str = INSTALLED) -> "tuple[list[str], list[str], list[str]]":
+def _swap_in(source: str, installed_dir: str, name: str) -> None:
+    """Put the mod folder ``source`` where mods/<name> is. The new copy is made beside it first, so a failure leaves the old
+    copy exactly as it was; the old copy then moves to mods/.replaced/<name> (replacing the one an earlier update left)."""
+    target = os.path.join(installed_dir, name)
+    staging = os.path.join(installed_dir, f".{name}.new")
+    backup_root = os.path.join(installed_dir, BACKUP_DIR)
+    backup = os.path.join(backup_root, name)
+    shutil.rmtree(staging, ignore_errors=True)
+    try:
+        shutil.copytree(source, staging, ignore=NOT_COPIED)
+        os.makedirs(backup_root, exist_ok=True)
+        shutil.rmtree(backup, ignore_errors=True)
+        os.rename(target, backup)
+    except Exception:
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+    try:
+        os.rename(staging, target)
+    except Exception:
+        os.rename(backup, target)                       # put the old copy back
+        shutil.rmtree(staging, ignore_errors=True)
+        raise
+
+
+def update(names=("all",), available_dir: str = AVAILABLE, installed_dir: str = INSTALLED,
+           errors: "dict | None" = None) -> "tuple[list[str], list[str], list[str]]":
     """``(updated, added, unknown)``: replace the copy of each installed mod that differs from the one in mods_available/
-    (a new package version, or a fixed mod) and add what the new versions need. A mod only in mods/ is left alone."""
+    (a new package version, or a fixed mod) and add what the new versions need. A mod only in mods/ is left alone, and the
+    copy that was replaced is kept in mods/.replaced/<name>. With ``errors`` (a dict) a mod that cannot be replaced is
+    recorded there as ``{name: why}`` and the others carry on; without it the first failure raises."""
     mods = available(available_dir)
     known = {m.name for m in mods}
     present = installed_names(installed_dir)
@@ -87,12 +120,71 @@ def update(names=("all",), available_dir: str = AVAILABLE, installed_dir: str = 
         if name not in known or name not in present:
             continue
         source, target = os.path.join(available_dir, name), os.path.join(installed_dir, name)
-        if _files(source) != _files(target):
-            shutil.rmtree(target)
-            shutil.copytree(source, target, ignore=NOT_COPIED)
-            updated.append(name)
+        try:
+            if _files(source) != _files(target):
+                _swap_in(source, installed_dir, name)
+                updated.append(name)
+        except Exception as exc:
+            if errors is None:
+                raise
+            errors[name] = f"{type(exc).__name__}: {exc}"[:160]
     added, _ = add([n for n in wanted if n in known and n in present], available_dir, installed_dir)
     return updated, added, unknown
+
+
+def _take_lock(path: str) -> bool:
+    """True if this process now holds the refresh lock. A lock older than LOCK_STALE_S is a dead launch's and is taken over."""
+    for _attempt in (1, 2):
+        try:
+            os.close(os.open(path, os.O_CREAT | os.O_EXCL | os.O_WRONLY))
+            return True
+        except FileExistsError:
+            try:
+                if time.time() - os.path.getmtime(path) < LOCK_STALE_S:
+                    return False
+                os.remove(path)
+            except OSError:
+                return False
+        except OSError:
+            return False
+    return False
+
+
+def refresh_at_launch(root: str) -> str:
+    """What the launch file does on every start: every mod in mods/ that is also in mods_available/ and differs (it was
+    updated, e.g. by a ``git pull`` there) is replaced by the mods_available version, and the mods a new version needs are
+    added. Mods the player put in mods/ themselves (not in mods_available/) are never touched and nothing is ever removed.
+    Returns one line for launch_log.txt, "" when nothing changed. Never raises. ``STAR_EMPIRE_NO_MOD_REFRESH=1`` skips it."""
+    try:
+        if os.environ.get(ENV_NO_REFRESH):
+            return ""
+        available_dir, installed_dir = os.path.join(root, "mods_available"), os.path.join(root, "mods")
+        if not (os.path.isdir(available_dir) and os.path.isdir(installed_dir)):
+            return ""
+        lock = os.path.join(installed_dir, LOCK_NAME)
+        if not _take_lock(lock):
+            return "mods not refreshed: another launch is doing it"
+        try:
+            errors: dict = {}
+            updated, added, _unknown = update(["all"], available_dir, installed_dir, errors)
+        finally:
+            try:
+                os.remove(lock)
+            except OSError:
+                pass
+        parts = []
+        if updated:
+            parts.append("updated " + ", ".join(updated))
+        if added:
+            parts.append("added " + ", ".join(added) + " (needed by an updated mod)")
+        if errors:
+            parts.append("could NOT update " + "; ".join(f"{n} ({why})" for n, why in sorted(errors.items())))
+        if not parts:
+            return ""
+        kept = f" (the old copies are in mods\\{BACKUP_DIR})" if updated else ""
+        return "mods refreshed from mods_available: " + "; ".join(parts) + kept
+    except Exception as exc:
+        return f"mods not refreshed: {exc}"
 
 
 def dependants(name: str, installed_dir: str = INSTALLED) -> "list[str]":

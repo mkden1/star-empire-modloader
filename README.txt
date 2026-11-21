@@ -12,6 +12,8 @@ TO PLAY
 3. Double-click "Launch Modded Client.bat". The first time, a window opens where you tick the mods you want.
 
 That one file is all you ever run. Each time it:
+  * brings the mods you use up to date: a mod in "mods" that differs from its copy in "mods_available" (you updated
+    that folder) is replaced by the newer one, and the mods a new version needs are added;
   * runs the official launcher, which installs the game or brings it up to date, and closes the plain game the
     launcher opens;
   * checks that every mod still fits this version of the game. A mod that does not is switched off and named in a
@@ -37,8 +39,13 @@ CHOOSING THEM: the first time you double-click "Launch Modded Client.bat" a wind
 it does (and see its pictures, where it has them), tick the ones you want, and press "Apply and play". "Recommended" ticks
 the usual set. A mod that needs another one brings it along. Mods you leave unticked are not used.
 
-To change your mods later, close the game and double-click "Choose Mods.bat". After you update the mods_available folder
-it also refreshes the copies you use.
+To change your mods later, close the game and double-click "Choose Mods.bat".
+
+To get newer versions of the mods, update the mods_available folder (git pull in it, or unzip a newer download over
+it). The next time you launch, every mod you use that changed there is replaced in "mods" by the new version; the old
+copy is kept in mods\.replaced (one version back) in case you want it. Mods you put in "mods" yourself, and mods you
+edited by hand under a name that is not in mods_available, are never touched or removed. (A hand edit to a mod that IS
+in mods_available is replaced: keep it in mods\.replaced, or set STAR_EMPIRE_NO_MOD_REFRESH=1.)
 
 The game uses the folders in "mods". The window fills it for you; you can also copy folders from "mods_available" into
 "mods" by hand (copy the ones a mod needs too, the window and the mod's README say which; if you forget one the game still
@@ -51,8 +58,9 @@ If you prefer a console, modloader\modctl.bat does the same: "list", "add NAME",
 IF SOMETHING GOES WRONG
 -----------------------
 * mods_report.txt (in this folder) says what the loader did at the last start; launch_log.txt says what the update step
-  did; picker_error.txt appears if the mod window could not open (then copy mod folders into "mods" by hand).
+  did (it also says which mods were refreshed from mods_available); picker_error.txt appears if the mod window could not open (then copy mod folders into "mods" by hand).
 * To start without running the official launcher first (no internet, or in a hurry):  set STAR_EMPIRE_NO_UPDATE=1
+* To keep the mods in "mods" exactly as they are (no refresh from mods_available):  set STAR_EMPIRE_NO_MOD_REFRESH=1
 * To start with no mods at all:   set STAR_EMPIRE_NO_MODS=1   before launching, or press "None" and then "Apply" in Choose Mods.bat.
 * To switch some off without deleting them:   set STAR_EMPIRE_DISABLE_MODS=combat_log,range_rings
 * Mods write their settings (*.json) and recorded data (scan_data) into this folder, never into the game's.

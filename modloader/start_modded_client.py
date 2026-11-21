@@ -44,6 +44,15 @@ try:
 except Exception:
     pass
 
+# Every start: a mod in mods/ that differs from its copy in mods_available/ (it was updated there, e.g. by a git pull) is
+# replaced by the newer one, and the mods a new version needs are added (modctl.refresh_at_launch). Mods the player put in
+# mods/ themselves are left alone, and nothing is removed. The replaced copy is kept in mods/.replaced. Never stops the start.
+try:
+    import modctl
+    _mods_note = modctl.refresh_at_launch(_ROOT)
+except Exception as _exc:
+    _mods_note = f"mods not refreshed: {_exc}"
+
 # The one launch file does everything: if the official launcher is in the game's folder (or this one) it is run first, so
 # the game is installed or brought up to date, and the plain client it opens is closed again (game_updater.py). Then the
 # mods are checked as the game starts below: a mod that no longer fits the game's code is switched off and named in a
@@ -53,11 +62,13 @@ try:
     _note = game_updater.update_game(os.path.dirname(str(modloader.INTERNAL_DIR)), _ROOT)
 except Exception as _exc:
     _note = f"the update step could not run: {_exc}"
-if _note:
+_notes = [n for n in (_mods_note, _note) if n]
+if _notes:
     try:
         import time
         with open(os.path.join(_ROOT, "launch_log.txt"), "w", encoding="utf-8") as _log:
-            _log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {_note}\n")
+            for _line in _notes:
+                _log.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')}  {_line}\n")
     except OSError:
         pass
 

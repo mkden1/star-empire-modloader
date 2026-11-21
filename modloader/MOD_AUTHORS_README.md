@@ -188,7 +188,9 @@ mods in `mods_available\`: a tick box for each, its README and screenshots besid
 
 Ticking a mod also adds what it `requires`. **Apply** makes `mods\` match: it copies what is missing, removes what was
 unticked and refreshes copies that differ from `mods_available\`. Folders in `mods\` that are not in `mods_available\` are a
-player's own mods and are left alone, together with the mods they need.
+player's own mods and are left alone, together with the mods they need. The launch file also does the "refresh" part of
+Apply on every start: a mod in `mods\` that differs from `mods_available\` (after a `git pull` there) is replaced by the new
+version, the old copy kept in `mods\.replaced`, so a pushed fix reaches players without them opening the picker.
 
 **Names in the game.** The ESC menu's Mods page lists every mod by its folder name, so the picker shows that name under the
 title. Only recorders and diagnostics get a switch on the ESC menu's Data Capture page (an optimisation, category
