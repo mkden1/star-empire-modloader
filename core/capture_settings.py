@@ -58,6 +58,17 @@ SOUND_PREFETCH = "sound_prefetch"  # read the weapon sounds ahead (sound_prefetc
 DATA_KEYS = tuple(k for k, _, _, _ in DATA_ENTRIES)
 ALL_KEYS = (MASTER,) + DATA_KEYS + (WATCHDOG, CLICK_DIAG, SOUND_PREFETCH)
 
+# The mod(s) that use each switch (names of folders in mods/). The Data Capture page lists a switch only when one of its
+# mods is in effect, so a player who did not pick a recorder is not shown its options. ``MASTER`` has no owner of its own:
+# it is listed when any data switch is.
+OWNERS = {
+    "bot_fleet": ("scan_capture",), "bot_legs": ("scan_capture",), "combat": ("scan_capture",),
+    "station_logs": ("station_logs",), "planet_scans": ("scan_capture",), "station_ids": ("scan_capture",),
+    "shuttle_routes": ("colony_scan",), "trade_bot_slots": ("scan_capture",),
+    "colony_scan": ("colony_scan", "station_profile"),            # one switch for both, see the module note
+    WATCHDOG: ("freeze_watchdog",), CLICK_DIAG: ("click_diag",), SOUND_PREFETCH: ("sound_prefetch",),
+}
+
 _DEFAULTS = {k: True for k in ALL_KEYS}
 
 
@@ -76,6 +87,23 @@ def enabled(key: str) -> bool:
     if key in DATA_KEYS:
         return state.get(MASTER, True) and state.get(key, True)
     return state.get(key, True)
+
+
+def installed_mods() -> "set[str] | None":
+    """Names of the mods in effect, or None when no mod loader is running (then nothing is hidden)."""
+    info = modloader.installed()
+    return None if info is None else set(info.result.applied)
+
+
+def listed(key: str, mods: "set[str] | None" = None) -> bool:
+    """Should the Data Capture page list ``key``? Yes when one of the mods that use it is in effect (``mods``, by default
+    the loader's), or when that cannot be told. The master switch is listed when any data switch is."""
+    mods = installed_mods() if mods is None else mods
+    if mods is None:
+        return True
+    if key == MASTER:
+        return any(listed(k, mods) for k in DATA_KEYS)
+    return any(owner in mods for owner in OWNERS.get(key, ()))
 
 
 def snapshot() -> "dict[str, bool]":

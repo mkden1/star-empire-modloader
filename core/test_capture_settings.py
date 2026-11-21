@@ -114,6 +114,62 @@ class SettingsFileTests(_SettingsFixture):
         self.assertEqual(listed, list(capture_settings.ALL_KEYS))
 
 
+class OwnerTests(unittest.TestCase):
+    """The Data Capture page lists a switch only when a mod that uses it is in effect (capture_settings.OWNERS)."""
+
+    def test_every_switch_but_the_master_names_the_mods_that_use_it_and_they_exist(self):
+        import modloader
+        self.assertEqual(set(capture_settings.OWNERS), set(capture_settings.ALL_KEYS) - {capture_settings.MASTER})
+        known = {mod.name for mod in modloader.load_mods()}
+        for key, owners in capture_settings.OWNERS.items():
+            with self.subTest(switch=key):
+                self.assertTrue(owners)
+                self.assertLessEqual(set(owners), known)
+
+    def test_the_named_mods_really_ask_for_that_switch(self):
+        """A wrong or stale entry would hide a switch whose mod is installed (or show one nothing uses)."""
+        import modloader
+        constants = {value: name for name, value in vars(capture_settings).items()
+                     if name.isupper() and isinstance(value, str)}
+        for key, owners in capture_settings.OWNERS.items():
+            texts = []
+            for owner in owners:
+                folder = Path(modloader.MODS_DIR) / owner
+                texts += [path.read_text(encoding="utf-8-sig") for path in folder.iterdir()
+                          if path.suffix in (".py", ".patch") and not path.name.startswith("test_")]
+            asked = [f'"{key}"' in text or (key in constants and f"capture_settings.{constants[key]}" in text)
+                     for text in texts]
+            with self.subTest(switch=key):
+                self.assertTrue(any(asked), f"none of {owners} asks for {key!r}")
+
+    def test_a_switch_is_listed_only_when_one_of_its_mods_is_in_effect(self):
+        mods = {"scan_capture", "click_diag"}
+        for key, expected in (("bot_fleet", True), ("combat", True), ("click_diag", True), ("station_logs", False),
+                              ("shuttle_routes", False), ("colony_scan", False), ("freeze_watchdog", False)):
+            self.assertEqual(capture_settings.listed(key, mods), expected, key)
+        for mod in ("colony_scan", "station_profile"):                       # one switch for both
+            self.assertTrue(capture_settings.listed("colony_scan", {mod}), mod)
+
+    def test_the_master_is_listed_with_any_data_switch_but_not_for_diagnostics_alone(self):
+        self.assertTrue(capture_settings.listed(capture_settings.MASTER, {"station_logs"}))
+        self.assertFalse(capture_settings.listed(capture_settings.MASTER, {"click_diag", "freeze_watchdog", "sound_prefetch"}))
+        self.assertFalse(capture_settings.listed(capture_settings.MASTER, set()))
+
+    def test_nothing_is_hidden_when_no_mod_loader_is_running(self):
+        with mock.patch.object(capture_settings, "installed_mods", return_value=None):
+            for key in capture_settings.ALL_KEYS:
+                self.assertTrue(capture_settings.listed(key), key)
+
+    def test_the_mods_in_effect_are_the_ones_the_loader_applied(self):
+        import modloader
+        from types import SimpleNamespace
+        info = SimpleNamespace(result=SimpleNamespace(applied=["a", "b"]))
+        with mock.patch.object(modloader, "installed", return_value=info):
+            self.assertEqual(capture_settings.installed_mods(), {"a", "b"})
+        with mock.patch.object(modloader, "installed", return_value=None):
+            self.assertIsNone(capture_settings.installed_mods())
+
+
 class LoggersHonourTheirSwitch(_SettingsFixture):
     """Each production recorder (out_path=None) writes nothing while its switch is off, and
     starts again when it is back on. A recorder given its own out_path (a test) ignores them."""

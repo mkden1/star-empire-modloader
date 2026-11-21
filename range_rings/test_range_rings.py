@@ -90,8 +90,8 @@ def painted(screen, rect) -> bool:
 # ── settings ─────────────────────────────────────────────────────────────────
 
 class SettingsTests(Base):
-    def test_defaults_show_the_weapon_ring_only(self):
-        self.assertEqual(rr.settings, {"enabled": True, "weapon": True, "custom": False, "mode": "radius",
+    def test_the_rings_start_off_with_the_weapon_ring_ready(self):
+        self.assertEqual(rr.settings, {"enabled": False, "weapon": True, "custom": False, "mode": "radius",
                                        "radius": 0.0, "multiplier": 1.0, "label": ""})
 
     def test_clean_keeps_good_values_and_defaults_the_rest(self):
@@ -169,7 +169,7 @@ class DistanceTests(unittest.TestCase):
 
 class RingsTests(Base):
     def state(self, **kwargs):
-        return {**rr._defaults(), **kwargs}
+        return {**rr._defaults(), "enabled": True, **kwargs}                  # the rings themselves, not the default switch
 
     def test_the_weapon_ring_is_the_servers_effective_range(self):
         self.assertEqual(rr.rings(self.state(), {"active_weapon_range": 2131.0}), [rr.Ring("weapon", 2131.0, "WEAPON")])
@@ -224,23 +224,28 @@ class CommandTests(Base):
         return rr.apply_command({**rr._defaults(), **state}, text)
 
     def test_rings_switches_everything(self):
-        state, message, changed = self.run_command("/rings")
-        self.assertEqual((state["enabled"], message, changed), (False, "Range rings off.", True))
+        state, message, changed = self.run_command("/rings")                   # they start off
+        self.assertEqual((state["enabled"], message, changed), (True, "Range rings on.", True))
         state, message, _ = rr.apply_command(state, "/rings")
-        self.assertEqual((state["enabled"], message), (True, "Range rings on."))
+        self.assertEqual((state["enabled"], message), (False, "Range rings off."))
+
+    def test_a_bare_ring_command_says_the_rings_are_off_until_they_are_switched_on(self):
+        _state, message, changed = self.run_command("/ring")
+        self.assertFalse(changed)
+        self.assertTrue(message.startswith("Range rings are off (/rings turns them on)."), message)
 
     def test_a_bare_ring_command_reports_and_changes_nothing(self):
-        state, message, changed = self.run_command("/ring")
+        state, message, changed = self.run_command("/ring", enabled=True)
         self.assertFalse(changed)
-        self.assertEqual(state, rr._defaults())
+        self.assertEqual(state, {**rr._defaults(), "enabled": True})
         self.assertIn("weapon ring on", message)
         self.assertIn("custom ring not set (off)", message)
         self.assertIn("/ring <distance>", message)
 
     def test_the_report_says_what_is_set(self):
-        text = rr.describe({**rr._defaults(), "custom": True, "radius": 25000.0, "label": "boss"})
+        text = rr.describe({**rr._defaults(), "enabled": True, "custom": True, "radius": 25000.0, "label": "boss"})
         self.assertIn("custom ring 25,000 units 'boss' (on)", text)
-        text = rr.describe({**rr._defaults(), "custom": True, "mode": "vis", "multiplier": 2.0})
+        text = rr.describe({**rr._defaults(), "enabled": True, "custom": True, "mode": "vis", "multiplier": 2.0})
         self.assertIn("your visibility x2 (on)", text)
         self.assertEqual(rr.describe({**rr._defaults(), "enabled": False}), "Range rings are off (/rings turns them on).")
 
@@ -332,7 +337,7 @@ class CommandTests(Base):
     def test_commands_are_case_insensitive_and_the_slash_is_optional(self):
         self.assertEqual(self.run_command("/RING WEAPON OFF")[0]["weapon"], False)
         self.assertEqual(self.run_command("ring 25K")[0]["radius"], 25000.0)
-        self.assertEqual(self.run_command("/Rings")[0]["enabled"], False)
+        self.assertEqual(self.run_command("/Rings")[0]["enabled"], True)
 
     def test_the_input_state_is_never_changed_in_place(self):
         original = rr._defaults()
@@ -439,6 +444,10 @@ class GeometryTests(unittest.TestCase):
 # ── drawing ──────────────────────────────────────────────────────────────────
 
 class DrawTests(Base):
+    def setUp(self):
+        super().setUp()
+        rr.settings["enabled"] = True                      # the rings start off; these tests are about drawing them
+
     def draw(self, window=None, ctx=None):
         window = window or FakeWindow()
         ctx = ctx or make_ctx()
@@ -643,6 +652,10 @@ class VanillaHookTests(unittest.TestCase):
 
 
 class RealWindowTests(Base):
+    def setUp(self):
+        super().setUp()
+        rr.settings["enabled"] = True                      # the rings start off; these tests are about drawing them
+
     def test_the_hook_is_on_the_real_window_and_draws_through_the_real_overlay(self):
         import Client
         cls = Client.SolarSystemWindow

@@ -1,7 +1,8 @@
 """capture_settings_panel.py — the in-game "Data Capture" page (ESC menu -> Data Capture).
 
 A column of ON/OFF buttons, one per data logger plus the master switch and the freeze watchdog,
-styled like the "UI Panels" page next to it. The state itself lives in capture_settings.py (a
+styled like the "UI Panels" page next to it. Only the switches of mods that are in effect are listed (a player who
+did not pick a recorder is not shown its options); with none, the page says so. The state itself lives in capture_settings.py (a
 click calls ``capture_settings.toggle`` -- it takes effect at once and the file is saved on a
 background thread, so clicking never touches the disk on the render thread). The drawing and
 click handling are the shared ones in settings_page.py.
@@ -22,20 +23,28 @@ _HINT = "Changes apply at once and are saved for this client."
 
 
 def _rows() -> "list[tuple[str, str]]":
-    rows = [(capture_settings.MASTER, "All data capture")]
-    rows += [(key, label) for key, label, _file, _note in capture_settings.DATA_ENTRIES]
-    rows.append((capture_settings.WATCHDOG, "Freeze watchdog"))
-    rows.append((capture_settings.CLICK_DIAG, "Click diagnostics"))
-    rows.append((capture_settings.SOUND_PREFETCH, "Sound prefetch"))
+    mods = capture_settings.installed_mods()
+    listed = lambda key: capture_settings.listed(key, mods)
+    rows: "list[tuple[str, str]]" = []
+    if listed(capture_settings.MASTER):
+        rows.append((capture_settings.MASTER, "All data capture"))
+    rows += [(key, label) for key, label, _file, _note in capture_settings.DATA_ENTRIES if listed(key)]
+    for key, label in ((capture_settings.WATCHDOG, "Freeze watchdog"), (capture_settings.CLICK_DIAG, "Click diagnostics"),
+                       (capture_settings.SOUND_PREFETCH, "Sound prefetch")):
+        if listed(key):
+            rows.append((key, label))
     return rows
 
 
 def _note_lines() -> "list[str]":
     """Footnotes, one entry per printed line (a note may span several, split on newlines)."""
+    mods = capture_settings.installed_mods()
     lines: "list[str]" = []
-    for _key, _label, _file, note in capture_settings.DATA_ENTRIES:
-        if note:
+    for key, _label, _file, note in capture_settings.DATA_ENTRIES:
+        if note and capture_settings.listed(key, mods):
             lines.extend(note.split("\n"))
+    if not _rows():
+        lines = ["No mod that records data or writes diagnostics", "is switched on. Choose Mods.bat lists them."]
     return lines
 
 

@@ -10,7 +10,7 @@ Range rings around your ship: your weapon's reach and one ring you set.
 
 ## Using it
 
-- `/rings` switches every ring on or off.
+- The rings start **off**. `/rings` switches every ring on or off (a choice you make is saved in `range_rings.json`).
 - `/ring` shows what is set.
 - `/ring weapon [on|off]` the weapon ring (no argument: switch it).
 - `/ring 25000 [label]` the custom ring at 25,000 units (`25k` works too), and switch it on.

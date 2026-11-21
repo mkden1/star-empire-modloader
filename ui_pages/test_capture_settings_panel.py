@@ -6,6 +6,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
+from unittest import mock
 
 os.environ.setdefault("SDL_VIDEODRIVER", "dummy")
 import pygame
@@ -140,6 +141,52 @@ class PageTests(_Fixture):
         self.draw_menu(window)
         self.assertIn("uip_close", window._opt_rects)
         self.assertFalse(hasattr(window, "_capture_rects"))
+
+
+class OnlyInstalledModsTests(_Fixture):
+    """A player who did not pick a recorder is not shown its options."""
+
+    def rows_with(self, mods):
+        with mock.patch.object(capture_settings, "installed_mods", return_value=mods):
+            return [key for key, _label in capture_settings_panel._rows()]
+
+    def test_only_the_switches_of_mods_in_effect_are_listed(self):
+        self.assertEqual(self.rows_with({"click_diag"}), ["click_diag"])                 # no master: nothing records data
+        self.assertEqual(self.rows_with({"scan_capture", "freeze_watchdog"}),
+                         [capture_settings.MASTER, "bot_fleet", "bot_legs", "combat", "planet_scans", "station_ids",
+                          "trade_bot_slots", "freeze_watchdog"])
+        self.assertEqual(self.rows_with({"station_profile", "sound_prefetch"}),
+                         [capture_settings.MASTER, "colony_scan", "sound_prefetch"])
+
+    def test_everything_is_listed_when_no_mod_loader_is_running_or_every_mod_is_in_effect(self):
+        self.assertEqual(self.rows_with(None), list(capture_settings.ALL_KEYS))
+        every = {owner for owners in capture_settings.OWNERS.values() for owner in owners}
+        self.assertEqual(self.rows_with(every), list(capture_settings.ALL_KEYS))
+
+    def test_a_footnote_is_shown_only_with_its_row(self):
+        with mock.patch.object(capture_settings, "installed_mods", return_value={"scan_capture"}):
+            self.assertTrue(any("galaxy map" in line for line in capture_settings_panel._note_lines()))
+        with mock.patch.object(capture_settings, "installed_mods", return_value={"station_logs"}):
+            self.assertEqual(capture_settings_panel._note_lines(), [])
+
+    def test_with_none_of_those_mods_the_page_says_so_and_still_draws_and_closes(self):
+        with mock.patch.object(capture_settings, "installed_mods", return_value=set()):
+            self.assertEqual(capture_settings_panel._rows(), [])
+            self.assertIn("No mod that records data", capture_settings_panel._note_lines()[0])
+            window = make_window(_ui_panels_settings_open=True, _capture_settings_open=True)
+            self.draw_menu(window)
+            rects = window._capture_rects
+            self.assertEqual([name for name in rects if name.startswith("row:")], [])
+            self.assertTrue(self.screen.get_rect().contains(rects["panel"]))
+            capture_settings_panel.click(window, rects["close"].center)
+            self.assertFalse(window._capture_settings_open)
+
+    def test_the_page_only_has_buttons_for_the_listed_switches(self):
+        with mock.patch.object(capture_settings, "installed_mods", return_value={"station_logs", "click_diag"}):
+            window = make_window(_ui_panels_settings_open=True, _capture_settings_open=True)
+            self.draw_menu(window)
+            rows = {name[4:] for name in window._capture_rects if name.startswith("row:")}
+        self.assertEqual(rows, {capture_settings.MASTER, "station_logs", "click_diag"})
 
 
 class HookTests(unittest.TestCase):

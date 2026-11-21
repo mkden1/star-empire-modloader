@@ -14,7 +14,7 @@ Two rings:
 
 Set them from chat:
 
-    /rings                      switch every ring on / off
+    /rings                      switch every ring on / off (they start OFF)
     /ring                       show what is set
     /ring weapon [on|off]       the weapon ring (no argument: switch it)
     /ring 25000 [label]         the custom ring at 25,000 units (25k works too), and switch it on
@@ -67,7 +67,8 @@ _path: str = _default_path()
 
 
 def _defaults() -> dict:
-    return {"enabled": True, "weapon": True, "custom": False, "mode": "radius", "radius": 0.0, "multiplier": 1.0,
+    # Off until the player asks (/rings): the weapon ring is ready and shows as soon as they do. A saved range_rings.json wins.
+    return {"enabled": False, "weapon": True, "custom": False, "mode": "radius", "radius": 0.0, "multiplier": 1.0,
             "label": ""}
 
 
