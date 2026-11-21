@@ -1,7 +1,7 @@
 # The development branch: the loader's source, our tests, and the tools that build and publish the ready-to-run folder.
 # The game itself - everything the official launcher downloads into this folder - is not part of it. Install the game with
 # the launcher and it sits beside these files; the rules below keep it (and the launcher) out of git.
-# mods/ is the repository's "mods" branch checked out here (git worktree add mods mods): it is not part of this branch.
+# mods/ is the repository's "mods_available" branch checked out here (git worktree add mods mods_available): it is not part of this branch.
 /mods/
 
 # --- the game and the launcher -------------------------------------------------------------------------------------------

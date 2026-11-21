@@ -100,7 +100,7 @@ class ModctlTests(Folders):
         self.assertTrue((Path(installed) / "core" / "core.py").is_file())
 
     def test_a_mods_tests_are_not_copied_and_do_not_count_as_a_difference(self):
-        """The mods branch keeps each mod's tests beside its code; a player's copy does not need them."""
+        """The mods_available branch keeps each mod's tests beside its code; a player's copy does not need them."""
         available, installed = self.make(core={"mod.json": "{}", "core.py": "X = 1\n", "test_core.py": "tests",
                                                "conftest.py": "x", "expected_failures.txt": "x", "README.md": "# Core\n"})
         (Path(available) / "core" / "screenshots").mkdir()
@@ -181,7 +181,7 @@ class BuildPackageTests(unittest.TestCase):
             self.assertNotIn("{{", text)
             self.assertIn("Launch Modded Client.bat", text)
             self.assertIn("Choose Mods.bat", text)
-        self.assertIn("git clone --branch mods", build_package.readme_text(template, [], False))
+        self.assertIn("git clone --branch mods_available --single-branch", build_package.readme_text(template, [], False))
         self.assertNotIn("git clone", build_package.readme_text(template, [], True))
 
 class RebuildKeepsTheGameTests(unittest.TestCase):

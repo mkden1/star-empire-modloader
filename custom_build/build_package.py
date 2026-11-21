@@ -228,7 +228,7 @@ def readme_text(template: str, mods, with_mods: bool) -> str:
 
 def build_package(out: Path, with_mods: bool = True) -> "list[str]":
     """Make the package; returns the names of the mods in it. Without ``with_mods`` mods_available/ is left out (the
-    mods are then picked from the repository's mods branch)."""
+    mods are then picked from the repository's mods_available branch)."""
     sys.path.insert(0, str(INTERNAL))
     import modloader
     mods = modloader.load_mods(MODS_SRC)
