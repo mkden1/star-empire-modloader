@@ -239,7 +239,6 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`station_auto_name`](station_auto_name/README.md) | AUTO NAME button on the station rename dialog (station_auto_name.py). | 4 in Client, render_mixin | core |
 | [`station_gear_upgrade`](station_gear_upgrade/README.md) | UPGRADE GEAR and ADD 50 GAMMA / WORKERS buttons in the station prefab dialog (station_gear_upgrade.py, station_expansion.py). | 3 in Client | render_alias |
 | [`station_logs`](station_logs/README.md) | Station Logs tab: auto-backfill of older pages and capture of the rows (station_log_capture.py). | 9 in station_logs_client | core |
-| [`station_probe`](station_probe/README.md) | /stationprobe: ask for another station's logs, cargo and construction (station_probe.py). | 3 in Client |  |
 | [`station_profile`](station_profile/README.md) | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
 | [`target_info`](target_info/README.md) | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
 | [`ui_pages`](ui_pages/README.md) | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
