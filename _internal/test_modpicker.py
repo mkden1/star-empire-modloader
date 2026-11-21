@@ -369,6 +369,14 @@ class WindowTests(Temp):
                 picker.draw(surface)                                       # must not raise, whatever the mod's README holds
             self.assertEqual(tuple(surface.get_at((3, 3)))[:3], modpicker.BG)
 
+    def test_the_detail_shows_the_folder_name_the_in_game_mods_page_uses(self):
+        picker = self.picker()
+        lay = picker.draw(self.screen)
+        for name in ("combat_log", "ui_pages", "range_rings"):
+            picker.selected = name
+            joined = "".join(op[3] for op in picker.detail(lay)[0] if op[0] == "text")
+            self.assertIn(f"Name on the in-game Mods page: {name}", joined)
+
     def test_the_buttons_fit_in_the_window_and_do_not_overlap(self):
         for size in ((1120, 720), (800, 500)):
             picker = self.picker()
