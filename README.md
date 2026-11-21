@@ -48,8 +48,11 @@ custom_build/freeze_report.py summarises what the freeze_watchdog mod wrote to t
 A player downloads the `modloader` branch, puts the official launcher in the folder, clones the `mods_available` branch into a
 folder of the same name, and double-clicks `Launch Modded Client.bat`. The first time, a window (the mod picker, drawn with
 the bundled pygame: no browser, no server) lists the mods with their READMEs and screenshots; they tick what they want and
-press "Apply and play". After that the launch file runs the official launcher (installing or updating the game and closing
-the plain client it opens), checks every mod against the game, and starts the game; `Choose Mods.bat` reopens the window.
+press "Apply and play". After that the launch file first replaces any mod in `mods/` that differs from its copy in
+`mods_available/` (an update: `modctl.refresh_at_launch`; the old copy is kept in `mods/.replaced`, mods the player added
+themselves are never touched, `STAR_EMPIRE_NO_MOD_REFRESH=1` skips it), then runs the official launcher (installing or
+updating the game and closing the plain client it opens), checks every mod against the game, and starts the game;
+`Choose Mods.bat` reopens the window.
 The picker groups mods by `"category"` and pre-ticks the `"recommended"` ones, both keys of each `mod.json`
 (see `mods/README.md`, "The mod picker"). The update step is `custom_build/package/game_updater.py`; the player-facing
 text is `custom_build/package/README.txt.tpl`.

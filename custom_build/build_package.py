@@ -392,6 +392,27 @@ print("RESULT " + json.dumps({"code": code, "listed": len(picker.catalog.visible
 """
 
 
+REFRESH_SMOKE = r"""
+# What the launch file does on every start (modctl.refresh_at_launch), with the real mods: right after every mod was copied
+# there must be NO difference to report; then one file is added to a mod in mods_available/ and exactly that mod must be
+# replaced (its old copy kept in mods/.replaced).
+import json, os, sys
+root = sys.argv[1]
+sys.path.insert(0, os.path.join(root, "modloader"))
+import modctl
+in_sync = modctl.refresh_at_launch(root)
+probe = os.path.join(root, "mods_available", "core", "zz_refresh_probe.txt")
+with open(probe, "w", encoding="utf-8") as handle:
+    handle.write("a newer version of core")
+changed = modctl.refresh_at_launch(root)
+then_in_sync = modctl.refresh_at_launch(root)
+print("RESULT " + json.dumps({
+    "in_sync": in_sync, "changed": changed, "then_in_sync": then_in_sync,
+    "probe_copied": os.path.isfile(os.path.join(root, "mods", "core", "zz_refresh_probe.txt")),
+    "old_kept": os.path.isdir(os.path.join(root, "mods", ".replaced", "core"))}))
+"""
+
+
 DECOY = 'raise ImportError("the game folder has its own copy of %s and it was used instead of the package\'s")\n'
 
 
@@ -468,6 +489,15 @@ def verify(out: Path, names: "list[str]") -> "list[str]":
         proc = run_python(game, ["-I", "modloader/modloader.py"])
         if proc.returncode != 0 or f"mods in effect ({len(names)})" not in proc.stdout:
             problems.append(f"with every mod added the check says:\n" + proc.stdout[-1200:])
+        proc = run_python(game, ["-I", "-c", REFRESH_SMOKE, game])
+        refreshed = result_of(proc)
+        if refreshed is None:
+            problems.append("the launch-time mod refresh does not run with the package's Python:\n" + (proc.stderr or proc.stdout)[-1500:])
+        elif refreshed["in_sync"] != "":
+            problems.append(f"right after modctl add all the launch-time refresh found a difference: {refreshed['in_sync']!r}")
+        elif not (refreshed["changed"].startswith("mods refreshed from mods_available: updated core")
+                  and refreshed["probe_copied"] and refreshed["old_kept"] and refreshed["then_in_sync"] == ""):
+            problems.append(f"the launch-time refresh did not update exactly the changed mod: {refreshed}")
         shutil.rmtree(game / "mods")
         (game / "mods").mkdir()
 

@@ -3,9 +3,12 @@ never is, and how a rebuild treats the folder it builds into. The full build-and
 ``custom_build\\python.exe custom_build\\build_package.py``; this keeps its pieces honest in every test run."""
 import importlib.util
 import os
+import shutil
 import tempfile
+import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import modloader
 
@@ -114,6 +117,46 @@ class ModctlTests(Folders):
         (Path(available) / "core" / "core.py").write_text("X = 2\n", encoding="utf-8")
         self.assertEqual(modctl.update(["all"], available, installed), (["core"], [], []))     # a real change still counts
 
+    def test_update_keeps_the_replaced_copy_one_version_back(self):
+        available, installed = self.catalogue()
+        modctl.add(["core"], available, installed)
+        core_py = Path(available) / "core" / "core.py"
+        core_py.write_text("X = 2\n", encoding="utf-8")
+        modctl.update(["all"], available, installed)
+        self.assertEqual((Path(installed) / "core" / "core.py").read_text(encoding="utf-8"), "X = 2\n")
+        self.assertEqual((Path(installed) / ".replaced" / "core" / "core.py").read_text(encoding="utf-8"), "X = 1\n")
+        core_py.write_text("X = 3\n", encoding="utf-8")
+        modctl.update(["all"], available, installed)
+        self.assertEqual((Path(installed) / ".replaced" / "core" / "core.py").read_text(encoding="utf-8"), "X = 2\n")
+        self.assertEqual(modctl.installed_names(installed), {"core"})              # the backup and staging are not mods
+        self.assertFalse((Path(installed) / ".core.new").exists())
+
+    def failing_copy_of(self, name):
+        real = shutil.copytree
+
+        def copytree(src, dst, *args, **kwargs):
+            if str(dst).endswith(f".{name}.new"):
+                raise OSError("disk full")
+            return real(src, dst, *args, **kwargs)
+        return mock.patch.object(shutil, "copytree", copytree)
+
+    def test_a_copy_that_fails_leaves_the_old_mod_exactly_as_it_was_and_the_others_still_update(self):
+        available, installed = self.catalogue()
+        modctl.add(["b"], available, installed)                                      # a, b, core
+        (Path(available) / "core" / "core.py").write_text("X = 2\n", encoding="utf-8")
+        (Path(available) / "a" / "a.py").write_text("A = 2\n", encoding="utf-8")
+        errors = {}
+        with self.failing_copy_of("core"):
+            updated, _added, _unknown = modctl.update(["all"], available, installed, errors)
+        self.assertEqual(updated, ["a"])
+        self.assertEqual(list(errors), ["core"])
+        self.assertIn("disk full", errors["core"])
+        self.assertEqual((Path(installed) / "core" / "core.py").read_text(encoding="utf-8"), "X = 1\n")
+        self.assertEqual(modctl.installed_names(installed), {"a", "b", "core"})
+        self.assertFalse((Path(installed) / ".core.new").exists())
+        with self.failing_copy_of("core"), self.assertRaises(OSError):               # without a dict it raises
+            modctl.update(["core"], available, installed)
+
     def test_the_listing_shows_what_is_in_use_what_each_needs_and_strangers(self):
         available, installed = self.catalogue()
         modctl.add(["a"], available, installed)
@@ -123,6 +166,112 @@ class ModctlTests(Folders):
         self.assertIn("[ ] b  (needs: a)", text)
         self.assertIn("a mod", text)
         self.assertIn("In mods/ but not in mods_available/: mine", text)
+
+class RefreshAtLaunchTests(Folders):
+    """What the launch file does on every start: bring the copies in mods/ up to date with mods_available/."""
+
+    def setUp(self):
+        patcher = mock.patch.dict(os.environ)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        os.environ.pop(modctl.ENV_NO_REFRESH, None)
+
+    def setup_root(self):
+        available, installed = self.make(core={"mod.json": "{}", "core.py": "X = 1\n"}, solo={"mod.json": "{}"})
+        modctl.add(["core", "solo"], available, installed)
+        self.root = str(Path(available).parent)
+        self.core_installed = Path(installed) / "core" / "core.py"
+        self.core_available = Path(available) / "core" / "core.py"
+        return available, installed
+
+    def test_nothing_changed_means_nothing_is_done_or_said(self):
+        _available, installed = self.setup_root()
+        self.assertEqual(modctl.refresh_at_launch(self.root), "")
+        self.assertFalse((Path(installed) / ".replaced").exists())
+        self.assertFalse((Path(installed) / modctl.LOCK_NAME).exists())
+
+    def test_an_updated_mod_replaces_its_copy_and_the_line_for_the_log_says_so(self):
+        self.setup_root()
+        self.core_available.write_text("X = 2\n", encoding="utf-8")
+        note = modctl.refresh_at_launch(self.root)
+        self.assertTrue(note.startswith("mods refreshed from mods_available: updated core"), note)
+        self.assertIn(".replaced", note)
+        self.assertEqual(self.core_installed.read_text(encoding="utf-8"), "X = 2\n")
+        self.assertEqual(modctl.refresh_at_launch(self.root), "", "the next launch finds nothing to do")
+
+    def test_what_a_new_version_needs_is_added(self):
+        available, installed = self.make(core={"mod.json": "{}", "core.py": "X = 1\n"}, solo={"mod.json": "{}"})
+        modctl.add(["solo"], available, installed)
+        (Path(available) / "solo" / "mod.json").write_text('{"requires": ["core"]}', encoding="utf-8")
+        note = modctl.refresh_at_launch(str(Path(available).parent))
+        self.assertIn("updated solo", note)
+        self.assertIn("added core", note)
+        self.assertTrue((Path(installed) / "core" / "core.py").is_file())
+
+    def test_the_players_own_mods_are_never_touched_and_nothing_is_removed(self):
+        available, installed = self.setup_root()
+        (Path(installed) / "mine").mkdir()
+        (Path(installed) / "mine" / "mine.py").write_text("MINE = 1\n", encoding="utf-8")
+        shutil.rmtree(Path(available) / "solo")                  # taken out of mods_available: its copy stays
+        self.assertEqual(modctl.refresh_at_launch(self.root), "")
+        self.assertEqual(modctl.installed_names(installed), {"core", "solo", "mine"})
+        self.assertEqual((Path(installed) / "mine" / "mine.py").read_text(encoding="utf-8"), "MINE = 1\n")
+
+    def test_without_mods_available_or_without_mods_it_does_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "mods").mkdir()
+            self.assertEqual(modctl.refresh_at_launch(tmp), "")
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "mods_available" / "a").mkdir(parents=True)
+            self.assertEqual(modctl.refresh_at_launch(tmp), "")
+            self.assertFalse((Path(tmp) / "mods").exists(), "choosing mods is the picker's job, not this")
+
+    def test_the_switch_keeps_mods_as_they_are(self):
+        self.setup_root()
+        self.core_available.write_text("X = 2\n", encoding="utf-8")
+        os.environ[modctl.ENV_NO_REFRESH] = "1"
+        self.assertEqual(modctl.refresh_at_launch(self.root), "")
+        self.assertEqual(self.core_installed.read_text(encoding="utf-8"), "X = 1\n")
+
+    def test_a_launch_that_finds_another_one_refreshing_leaves_it_to_that_one(self):
+        _available, installed = self.setup_root()
+        self.core_available.write_text("X = 2\n", encoding="utf-8")
+        lock = Path(installed) / modctl.LOCK_NAME
+        lock.write_text("", encoding="utf-8")
+        self.assertIn("another launch", modctl.refresh_at_launch(self.root))
+        self.assertEqual(self.core_installed.read_text(encoding="utf-8"), "X = 1\n")
+        self.assertTrue(lock.exists(), "a lock that is not ours is not ours to remove")
+
+    def test_a_dead_launchs_old_lock_is_taken_over_and_the_lock_is_always_released(self):
+        _available, installed = self.setup_root()
+        self.core_available.write_text("X = 2\n", encoding="utf-8")
+        lock = Path(installed) / modctl.LOCK_NAME
+        lock.write_text("", encoding="utf-8")
+        long_ago = time.time() - modctl.LOCK_STALE_S - 60
+        os.utime(lock, (long_ago, long_ago))
+        self.assertIn("updated core", modctl.refresh_at_launch(self.root))
+        self.assertFalse(lock.exists())
+        self.core_available.write_text("X = 3\n", encoding="utf-8")
+        with mock.patch.object(modctl, "update", side_effect=RuntimeError("boom")):
+            self.assertIn("mods not refreshed: boom", modctl.refresh_at_launch(self.root))     # never raises
+        self.assertFalse(lock.exists(), "released after a failure too")
+
+    def test_a_mod_that_cannot_be_replaced_is_named_and_the_others_still_update(self):
+        available, installed = self.setup_root()
+        self.core_available.write_text("X = 2\n", encoding="utf-8")
+        (Path(available) / "solo" / "solo.py").write_text("S = 2\n", encoding="utf-8")
+        real = shutil.copytree
+
+        def copytree(src, dst, *args, **kwargs):
+            if str(dst).endswith(".core.new"):
+                raise OSError("in use")
+            return real(src, dst, *args, **kwargs)
+        with mock.patch.object(shutil, "copytree", copytree):
+            note = modctl.refresh_at_launch(self.root)
+        self.assertIn("updated solo", note)
+        self.assertIn("could NOT update core (OSError: in use)", note)
+        self.assertEqual(self.core_installed.read_text(encoding="utf-8"), "X = 1\n")
+
 
 class BuildPackageTests(unittest.TestCase):
     def test_mod_folders_are_copied_without_their_tests_and_bytecode(self):
@@ -150,6 +299,9 @@ class BuildPackageTests(unittest.TestCase):
         self.assertNotIn("sys.path.insert(0, _INTERNAL)", text)
         # the update step runs first: it may be what installs the game that the check below looks for
         self.assertLess(text.index("game_updater.update_game("), text.index("modloader.game_problem()"))
+        # the mods are brought up to date after the first-run window and before the game starts with them
+        self.assertLess(text.index("modpicker_model.choose_on_first_run(_ROOT)"), text.index("modctl.refresh_at_launch(_ROOT)"))
+        self.assertLess(text.index("modctl.refresh_at_launch(_ROOT)"), text.index("modloader.game_problem()"))
         # the mod window comes before everything slow: the first thing the player sees, and Cancel there stops the start
         self.assertLess(text.index("modpicker_model.choose_on_first_run(_ROOT)"), text.index("game_updater.update_game("))
 
