@@ -58,6 +58,10 @@ range_rings.json.*.tmp
 ui_layouts.json
 ui_layouts.json.*.tmp
 
+# The quick bars mod's key bindings (and later its bars and loadouts) (quick_bars_window.py).
+quick_bars.json
+quick_bars.json.*.tmp
+
 # What the mod loader wrote at the last start-up (which mods were switched off and why), and the compiled patched code it
 # caches when custom_build/ does not exist.
 mods_report.txt
