@@ -164,12 +164,16 @@ def make_id(name, when) -> str:
     return f"{int(when * 1000)}-{slug}"
 
 
-def new_layout(name, size, geometry: dict, windows: "dict | None" = None, when: "float | None" = None) -> dict:
+def new_layout(name, size, geometry: dict, windows: "dict | None" = None, when: "float | None" = None,
+               extras: "dict | None" = None) -> dict:
+    """``extras`` is what other mods keep the places of their windows in (``{mod key: data}``): it is stored as it is given and
+    handed back to that mod on a load, so this module never needs to know what is in it."""
     when = time.time() if when is None else float(when)
     name = clean_name(name)
     return {"version": SCHEMA_VERSION, "id": make_id(name, when), "name": name, "saved_at": when,
             "size": [int(size[0]), int(size[1])], "geometry": copy.deepcopy(geometry),
-            "windows": {key: [int(v) for v in rect] for key, rect in (windows or {}).items()}}
+            "windows": {key: [int(v) for v in rect] for key, rect in (windows or {}).items()},
+            "extras": copy.deepcopy(extras or {})}
 
 
 def valid_layout(data) -> bool:
@@ -187,6 +191,9 @@ def valid_layout(data) -> bool:
     if not isinstance(windows, dict) or not all(
             isinstance(rect, list) and len(rect) == 4 and all(isinstance(v, int) and not isinstance(v, bool) for v in rect)
             for rect in windows.values()):
+        return False
+    extras = data.get("extras", {})                  # (a layout saved before extras existed has none)
+    if not isinstance(extras, dict) or not all(isinstance(k, str) and isinstance(v, dict) for k, v in extras.items()):
         return False
     return isinstance(data.get("version"), int) and data["version"] <= SCHEMA_VERSION
 

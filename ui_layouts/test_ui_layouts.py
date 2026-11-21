@@ -276,6 +276,33 @@ class LayoutTests(unittest.TestCase):
         self.assertFalse(ul.valid_layout("text"))
         self.assertFalse(ul.valid_layout(None))
 
+    def test_a_layout_keeps_the_places_other_mods_gave_it(self):
+        extras = {"quick_bars": {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.5, "fy": None}]}}
+        layout = ul.new_layout("Desk", (2560, 1440), {}, {}, extras=extras, when=1.0)
+        self.assertEqual(layout["extras"], extras)
+        self.assertTrue(ul.valid_layout(layout))
+        self.assertEqual(json.loads(json.dumps(layout))["extras"], extras)
+
+    def test_the_extras_are_a_copy(self):
+        extras = {"quick_bars": {"bars": []}}
+        layout = ul.new_layout("Desk", (800, 600), {}, extras=extras)
+        extras["quick_bars"]["bars"].append(1)
+        self.assertEqual(layout["extras"], {"quick_bars": {"bars": []}})
+
+    def test_no_extras_is_an_empty_dict(self):
+        self.assertEqual(ul.new_layout("Desk", (800, 600), {})["extras"], {})
+
+    def test_a_layout_saved_before_there_were_extras_is_still_valid(self):
+        layout = self.good()
+        del layout["extras"]
+        self.assertTrue(ul.valid_layout(layout))
+
+    def test_bad_extras_are_rejected(self):
+        for bad in ("text", [], 5, None, {"a": 5}, {"a": []}, {5: {}}, {"a": "x"}):
+            layout = self.good()
+            layout["extras"] = bad
+            self.assertFalse(ul.valid_layout(layout), bad)
+
     def test_names_are_cleaned(self):
         self.assertEqual(ul.clean_name("  Big   desk \n screen "), "Big desk screen")
         self.assertEqual(len(ul.clean_name("x" * 100)), ul.MAX_NAME_LEN)

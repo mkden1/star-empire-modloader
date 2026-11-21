@@ -625,6 +625,159 @@ class LoadTests(Base):
         self.assertEqual(self.win._ul_status[1], "ok")
 
 
+# ── the places other mods keep (PROVIDERS) ───────────────────────────────────
+
+class ProviderTests(Base):
+    """A mod whose windows are not rectangles on the game window (the Quick Bars mod's extra bars) offers its places to a layout
+    through a module-level pair of functions, found by module name, so this mod never depends on it."""
+
+    DATA = {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.25, "fy": 0.5}]}
+
+    def places_now(self):
+        return ul.places(self.win.layout)
+
+    def provider(self, capture=None, apply=None):
+        fake = ModuleType("extra_bars")
+        fake.layout_capture = capture or mock.Mock(return_value=copy.deepcopy(self.DATA))
+        fake.layout_apply = apply or mock.Mock()
+        return fake
+
+    def saved_and_changed(self, fake):
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.open()
+            layout = self.save_as("Desk")
+            self.win.layout = moved(FULL)
+            self.win.applied.clear()
+        return layout
+
+    def test_a_layout_keeps_what_the_provider_says(self):
+        layout = self.saved_and_changed(self.provider())
+        self.assertEqual(layout["extras"], {"quick_bars": self.DATA})
+        self.assertTrue(ul.valid_layout(layout))
+        self.assertEqual(ul.read_file(self.path)[0]["extras"], {"quick_bars": self.DATA})
+
+    def test_a_load_hands_the_data_back_to_the_provider(self):
+        fake = self.provider()
+        self.saved_and_changed(fake)
+        fake.layout_apply.reset_mock()
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.press("load")
+        fake.layout_apply.assert_called_once_with(self.win, self.DATA)
+        self.assertEqual(self.win._ul_status[1], "ok")
+
+    def test_the_data_is_not_fitted_to_another_window_size(self):
+        """The provider's places are relative (fractions of the screen): whatever size the layout was made for, it gets them as saved."""
+        fake = self.provider()
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.render(size=(2560, 1440))
+            slw.save_current(self.win, "Big")
+            self.render(size=(1920, 1080))
+            self.win.layout = moved(FULL)
+            slw.open_window(self.win)
+            self.render(size=(1920, 1080))
+            fake.layout_apply.reset_mock()
+            self.press("load")
+        fake.layout_apply.assert_called_once_with(self.win, self.DATA)
+        self.assertIn("fitted", self.win._ul_status[0])
+
+    def test_without_the_provider_a_layout_has_no_extras_and_loads_all_the_same(self):
+        self.open()
+        layout = self.save_as("Desk")
+        self.assertEqual(layout["extras"], {})
+        self.win.layout = moved(FULL)
+        self.press("load")
+        self.assertEqual(self.places_now(), ul.places(FULL))
+
+    def test_a_layout_saved_with_a_provider_loads_when_that_mod_is_gone(self):
+        fake = self.provider()
+        self.saved_and_changed(fake)
+        self.press("load")                                                      # the module is not in sys.modules any more
+        self.assertEqual(self.places_now(), ul.places(FULL))
+        self.assertEqual(self.win._ul_status[1], "ok")
+
+    def test_a_provider_with_nothing_to_say_adds_nothing(self):
+        for nothing in (None, {}, "text", 5, []):
+            with self.subTest(nothing=nothing):
+                fake = self.provider(capture=mock.Mock(return_value=nothing))
+                with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+                    self.assertEqual(slw.capture_extras(self.win), {})
+
+    def test_a_provider_that_raises_is_skipped_and_the_layout_still_saves(self):
+        fake = self.provider(capture=mock.Mock(side_effect=RuntimeError("boom")))
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.open()
+            layout = self.save_as("Desk")
+        self.assertEqual(layout["extras"], {})
+        self.assertIsNotNone(layout)
+
+    def test_a_provider_that_raises_on_apply_does_not_stop_the_load(self):
+        fake = self.provider(apply=mock.Mock(side_effect=RuntimeError("boom")))
+        self.saved_and_changed(fake)
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.press("load")
+        self.assertEqual(self.places_now(), ul.places(FULL))
+        self.assertEqual(self.win._ul_status[1], "ok")
+
+    def test_undo_gives_the_provider_back_what_it_had_before_the_load(self):
+        current = {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.9, "fy": 0.1}]}
+        fake = self.provider()
+        self.saved_and_changed(fake)
+        fake.layout_capture.return_value = copy.deepcopy(current)               # the bars were moved since the save
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.press("load")
+            fake.layout_apply.reset_mock()
+            self.press("undo")
+        fake.layout_apply.assert_called_once_with(self.win, current)
+
+    def test_a_failed_load_puts_the_providers_places_back_too(self):
+        fake = self.provider()
+        self.saved_and_changed(fake)
+        real = self.win.apply_panel_layout
+        calls = []
+
+        def flaky(layout):
+            calls.append(1)
+            if len(calls) == 1:
+                raise ValueError("bad value")
+            real(layout)
+
+        self.win.apply_panel_layout = flaky
+        fake.layout_capture.return_value = {"bars": []}
+        fake.layout_apply.reset_mock()
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}), self.assertLogs(slw.logger, "ERROR"):
+            self.press("load")
+        # the load failed in the game's loader before it reached the provider; the put-back hands it what it had before
+        self.assertEqual(fake.layout_apply.call_args_list, [mock.call(self.win, {"bars": []})])
+        self.assertEqual(self.win._ul_status[1], "warn")
+
+    def test_update_takes_the_providers_places_as_they_are_now(self):
+        fake = self.provider()
+        layout = self.saved_and_changed(fake)
+        newer = {"bars": [{"id": "b1", "mods": ["shift"], "fx": 0.8, "fy": 0.2}]}
+        fake.layout_capture.return_value = newer
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.press("update")
+            self.press("update")
+        self.assertEqual(self.win._ul_store.get(layout["id"])["extras"], {"quick_bars": newer})
+
+    def test_a_layout_saved_before_extras_existed_loads_and_calls_no_provider(self):
+        fake = self.provider()
+        self.open()
+        layout = self.save_as("Desk")
+        old = dict(layout)
+        del old["extras"]
+        self.assertTrue(ul.valid_layout(old))
+        self.win._ul_store.save(old)
+        self.win.layout = moved(FULL)
+        with mock.patch.dict(sys.modules, {"extra_bars": fake}):
+            self.press("load")
+        fake.layout_apply.assert_not_called()
+        self.assertEqual(self.places_now(), ul.places(FULL))
+
+    def test_the_provider_table_names_the_quick_bars_mod(self):
+        self.assertEqual(slw.PROVIDERS, (("quick_bars", "extra_bars", "layout_capture", "layout_apply"),))
+
+
 # ── update, rename, delete ───────────────────────────────────────────────────
 
 class EditTests(Base):

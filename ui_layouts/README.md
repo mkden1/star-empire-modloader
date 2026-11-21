@@ -4,7 +4,7 @@ Save where the HUD's windows sit under a name and switch between the layouts, fo
 
 ## What it does
 
-- **Saves the places of your HUD**: every panel the game lays out (Ship Inventory, Turret Control, Fighter Control, Target, Chat, the Quick Actions bar, the minimap, Stats, Squad, Coalition, Friends, ...), the sizes you gave the ones that can be resized, and the window size the layout was made for. The Combat Log, the Galaxy Map window and the Ship Layouts window are included when you have them.
+- **Saves the places of your HUD**: every panel the game lays out (Ship Inventory, Turret Control, Fighter Control, Target, Chat, the Quick Actions bar, the minimap, Stats, Squad, Coalition, Friends, ...), the sizes you gave the ones that can be resized, and the window size the layout was made for. The Combat Log, the Galaxy Map window and the Ship Layouts window are included when you have them, and so are the extra bars of the Quick bars mod: their places only (not what is on them, and not whether they are shown), matched by bar and, for another character's bars, by key set (the Shift bar, the Ctrl bar ...). Their places are fractions of the screen, so a layout does not fit them to a window size.
 - **Switches between layouts**: LOAD puts every window back where it was saved. UNDO takes the last LOAD back.
 - **Only moves windows**: the Quick Actions bindings, chat tabs and colours, Galaxy Map favourites, the hangar sort order, which windows are open and the minimap zoom are never touched.
 - **Fits a layout to another window size** when you load one made for a different size: each window keeps its distance from the screen corner it was nearest to, the way the game itself moves windows when you resize it. A layout made for exactly this size comes back exactly.
@@ -30,5 +30,6 @@ Save where the HUD's windows sit under a name and switch between the layouts, fo
 
 - Patches the game's `Client.py` (9 hunks) (the loader applies them in memory; the game's files are never changed).
 - Code: `ui_layouts.py` (what a layout holds, fitting, the file), `ui_layouts_window.py` (the window and the chat command).
+- Other mods can offer the places of their own windows: a layout has an `extras` section, and `PROVIDERS` in `ui_layouts_window.py` names, per mod, the module and the two functions that return those places and put them back. They are looked up by name when a layout is saved or loaded, so a mod that is not installed is simply not there (the Quick bars mod's `extra_bars.layout_capture` / `layout_apply`).
 - It does not know the panels one by one: a layout is the game's own `_panel_layout_dict()` reduced to its places, and loading hands the game's own `apply_panel_layout` the current dict with the saved places laid over it, so a window the game adds later comes along.
 - Writes: `ui_layouts.json` next to the client (every write re-reads the file and changes only its own layout, so two clients cannot wipe each other's).

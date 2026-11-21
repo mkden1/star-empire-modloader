@@ -55,6 +55,13 @@ EXTRA_WINDOWS = (
     ("ship_layouts", "_sl_rect", "ship_layouts_window", "_save_settings"),
 )
 
+# Mods whose windows are not rectangles on the game window (the Quick Bars mod's extra bars are placed by fractions of the screen): (the
+# key their data is kept under in a layout, the mod module, its function that returns that data (or None) for this window, its function
+# that puts the data back). Looked up by module name at the time, so a mod that is not installed is simply not there.
+PROVIDERS = (
+    ("quick_bars", "extra_bars", "layout_capture", "layout_apply"),
+)
+
 # Where each section of a layout keeps its position on the game window, and what "the default place" is. The game's loader ignores a
 # null position, so a layout saved with a window at its default place would leave a window that was dragged since where it is.
 DEFAULT_PLACE = {
@@ -224,8 +231,25 @@ def capture(win) -> "tuple[dict, dict]":
     return geometry, windows
 
 
-def _put(win, geometry: dict, windows: dict) -> None:
-    """Make *geometry* and *windows* the places on screen. Raises when the game's loader does."""
+def capture_extras(win) -> dict:
+    """The places the other mods keep (``PROVIDERS``): ``{mod key: data}`` for each that is installed and has something to say."""
+    extras = {}
+    for key, module, capture_name, _apply in PROVIDERS:
+        capture_fn = getattr(sys.modules.get(module), capture_name, None)
+        if not callable(capture_fn):
+            continue
+        try:
+            data = capture_fn(win)
+        except Exception:
+            logger.debug("ui_layouts_window: %s could not say where its windows are", module, exc_info=True)
+            continue
+        if isinstance(data, dict) and data:
+            extras[key] = data
+    return extras
+
+
+def _put(win, geometry: dict, windows: dict, extras: "dict | None" = None) -> None:
+    """Make *geometry*, *windows* and *extras* the places on screen. Raises when the game's loader does."""
     win.apply_panel_layout(ui_layouts.merge(win._panel_layout_dict(), geometry))
     for section in ui_layouts.default_sections(geometry):
         for attr, default in DEFAULT_PLACE.get(section, ()):
@@ -246,6 +270,15 @@ def _put(win, geometry: dict, windows: dict) -> None:
                 saver(win)
             except Exception:
                 logger.debug("ui_layouts_window: %s could not save its window", module, exc_info=True)
+    for key, module, _capture, apply_name in PROVIDERS:
+        data = (extras or {}).get(key)
+        apply_fn = getattr(sys.modules.get(module), apply_name, None)
+        if data is None or not callable(apply_fn):
+            continue
+        try:
+            apply_fn(win, data)
+        except Exception:
+            logger.debug("ui_layouts_window: %s could not put its windows back", module, exc_info=True)
 
 
 def apply_layout(win, layout: dict, remember: bool = True) -> "tuple[bool, str]":
@@ -260,13 +293,14 @@ def apply_layout(win, layout: dict, remember: bool = True) -> "tuple[bool, str]"
     if fitted:
         geometry = ui_layouts.fit_geometry(geometry, saved_size, size)
         windows = ui_layouts.fit_windows(windows, saved_size, size)
-    before = ui_layouts.new_layout("before", size or saved_size, *capture(win))
+    extras = layout.get("extras") or {}                              # (relative places: nothing to fit)
+    before = ui_layouts.new_layout("before", size or saved_size, *capture(win), extras=capture_extras(win))
     try:
-        _put(win, geometry, windows)
+        _put(win, geometry, windows, extras)
     except Exception:
         logger.exception("ui_layouts_window: could not apply %r", layout.get("name"))
         try:
-            _put(win, before["geometry"], before["windows"])         # best effort: leave things where they were
+            _put(win, before["geometry"], before["windows"], before["extras"])   # best effort: leave things where they were
         except Exception:
             logger.exception("ui_layouts_window: could not put the windows back either")
         return False, f"Could not load '{layout['name']}' (the log says why); the windows were left as they were."
@@ -293,7 +327,7 @@ def save_current(win, name: str, target_id: "str | None" = None) -> "tuple[bool,
     if not win._ul_store.loaded:
         return False, "Still loading the saved layouts; try again in a moment."
     previous = win._ul_store.get(target_id) if target_id else None
-    layout = ui_layouts.new_layout(previous["name"] if previous else name, size, *capture(win))
+    layout = ui_layouts.new_layout(previous["name"] if previous else name, size, *capture(win), extras=capture_extras(win))
     if previous is not None:
         layout["id"] = previous["id"]
     win._ul_store.save(layout)
