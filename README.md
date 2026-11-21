@@ -104,17 +104,18 @@ client starts and the reason in `mods_report.txt` (repo root), for example
 ## The dev's tests, and tests that a mod makes fail
 
 The dev's own test files in `_internal/` are never edited either: they run against the patched game, so a mod that changes
-behaviour on purpose can make one of them fail. The mod lists that test in its own `expected_failures.txt`:
+behaviour on purpose can make one of them fail. The mod lists that test in its own `expected_failures.txt` (no mod does
+today; an earlier one that changed the connection handshake used it):
 
 ```
-test_arena_connection.py::ConnectionTests::test_only_the_game_control_connection_announces_arrival_states  # why
+test_some_file.py::SomeClass::test_name  # why this mod makes it fail on purpose
 ```
 
 Both `conftest.py` files mark it as a *strict* expected failure (`modloader.expected_failures`): the run shows it as `xfailed`,
 not a failure, and when it starts passing (the dev changed the test, or the mod went) the run fails until the line is removed.
 `test_mods_apply` checks every line names a test that exists. The mod's own version of the test lives in the mod's folder.
 Tests a mod adds for the dev's code go in the mod's folder too; they can borrow the dev test class's fixtures
-(`setUp = dev.ConnectionTests.setUp`, see `wire_zlib3/test_arena_zlib3.py`).
+(`setUp = dev.SomeClass.setUp`).
 
 The whole test run uses a throwaway `scan_data/` (`modloader.setup_for_tests`): the dev's tests exercise code the scan mods
 hook into, and no test may write the real archive.
@@ -242,5 +243,4 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`station_profile`](station_profile/README.md) | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
 | [`target_info`](target_info/README.md) | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
 | [`ui_pages`](ui_pages/README.md) | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
-| [`wire_zlib3`](wire_zlib3/README.md) | The zlib3 wire format and SPACE_COMBAT_BATCH decoding (wire_compression.py, combat_batch.py). | 11 in arena_connection, protocol, wire_compression |  |
 | [`zoom_floor`](zoom_floor/README.md) | Zoom out to 0.05 instead of 0.10 (and the things that scale with the zoom range). | 6 in Client, render_mixin |  |

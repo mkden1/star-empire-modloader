@@ -1,3 +1,0 @@
-# Dev tests that fail on purpose because this mod changes the behaviour they assert. Format: test_file.py::Class::test_name  # why
-# Strict: if one of these starts passing (the dev changed the test, or the mod went), the run says so and the line must go.
-test_arena_connection.py::ConnectionTests::test_only_the_game_control_connection_announces_arrival_states  # the control connection announces our zlib3 wire format, the dev's test expects zlib2 (ours: test_arena_zlib3.py)
