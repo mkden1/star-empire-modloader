@@ -1,8 +1,8 @@
 # The mods
 
-This is the `mods` branch of the mod loader's repository: one folder per mod, listed at the end of this file. To use
-some, copy their folders into the `mods/` folder of the ready-to-run loader (the `modloader` branch); `modctl.bat add NAME`
-there does it and copies the mods each one needs. Everything below is for people writing or changing mods.
+This is the `mods_available` branch of the mod loader's repository: one folder per mod, listed at the end of this file.
+Clone it as `mods_available` inside the ready-to-run loader (the `modloader` branch) and pick the mods you want with
+`Choose Mods.bat` (or `modloader\modctl.bat add NAME` on a console), which copies them and the mods each one needs into `mods/`. Everything below is for people writing or changing mods.
 
 Everything a mod changes in the dev's game code is a **patch**. The dev's files in `_internal/` stay exactly as shipped;
 the loader (`_internal/modloader.py` in the development branch, `modloader/modloader.py` in the ready-to-run folder)
