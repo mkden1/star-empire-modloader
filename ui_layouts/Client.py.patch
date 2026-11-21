@@ -1,0 +1,57 @@
+# ui_layouts: patches to the game's Client.py (every hunk only adds lines)
+
+@@ import ui_layouts_window # MOD: save and switch the HUD's layout @@
+ from arena_client import ArenaClientMixin
++import ui_layouts_window  # MOD: save where the HUD's windows sit under a name and switch between the layouts (ui_layouts_window.py)
+
+@@ self._menu_ui_layouts_rect = None # MOD @@
+             self._menu_shop_rect = None
++            self._menu_ui_layouts_rect = None   # MOD
+
+@@ # MOD: save / switch the HUD's layout (ui_layouts_window.py) @@
+             ("market", "GLOBAL MARKET NETWORK", self._market_open, "", False),
++            # MOD: save / switch the HUD's layout (ui_layouts_window.py)
++            ("ui_layouts", "UI LAYOUTS", ui_layouts_window.is_open(self), "", False),
+
+@@ self._menu_ui_layouts_rect = item_rects["ui_layouts"] # MOD @@
+         self._menu_shop_rect = item_rects.get("shop")
++        self._menu_ui_layouts_rect = item_rects["ui_layouts"]   # MOD
+
+@@ _frame_events = ui_layouts_window.filter_events(self, _frame_events) # MOD @@
+             _frame_events = pygame.event.get()
++            _frame_events = ui_layouts_window.filter_events(self, _frame_events)   # MOD: the UI Layouts window's clicks and typing
+
+@@ elif _cmd in ("uilayout", "uilayouts"): @@
+                                                 "/roll is available in System and Squad chat.",
+                                                 (255, 180, 80))
++                                    elif _cmd in ("uilayout", "uilayouts"):
++                                        # MOD: /uilayout - save and switch the HUD's layout (ui_layouts_window.py)
++                                        ui_layouts_window.handle_command(self, _msg)
+
+@@ if (self._menu_open ... UI LAYOUTS @@
++                    if (self._menu_open
++                            and _gui_route_allows("menu_popup")
++                            and getattr(self, "_menu_ui_layouts_rect", None)
++                            and self._menu_ui_layouts_rect.collidepoint(event.pos)):
++                        # MOD: UI LAYOUTS (ui_layouts_window.py)
++                        self._menu_open = False
++                        ui_layouts_window.toggle(self)
++                        continue
+                     if (self._menu_open
+                             and _gui_route_allows("menu_popup")
+                             and not (self._menu_popup_rect and
+
+@@ ui_layouts_window.queue(self, _frame) # MOD @@ order=0
+                 _managed_draw_wrapper = _profile_managed_draw
++            ui_layouts_window.queue(self, _frame)   # MOD: the UI Layouts window joins the retained windows
+
+@@ # MOD: the UI LAYOUTS window - save where the HUD's windows sit under a name @@
+     _show_use_launcher_message()
+     sys.exit(1)
+
+
++# MOD: the UI LAYOUTS window - save where the HUD's windows sit under a name and switch between the layouts
++# (ui_layouts_window.py). Keeps the flight keys quiet while a name is typed; globals(), not sys.modules[__name__]
++# (run_client.py exec()s this file as __main__). Off with STAR_EMPIRE_NO_UI_LAYOUTS=1.
++ui_layouts_window.install(SolarSystemWindow, globals())
++

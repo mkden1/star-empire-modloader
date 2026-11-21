@@ -250,5 +250,6 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`station_logs`](station_logs/README.md) | Station Logs tab: auto-backfill of older pages and capture of the rows (station_log_capture.py). | 9 in station_logs_client | core |
 | [`station_profile`](station_profile/README.md) | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
 | [`target_info`](target_info/README.md) | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
+| [`ui_layouts`](ui_layouts/README.md) | UI LAYOUTS: save where the HUD's windows sit under a name and switch between the layouts, e.g. one per screen (ui_layouts_window.py). | 9 in Client | core |
 | [`ui_pages`](ui_pages/README.md) | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
 | [`zoom_floor`](zoom_floor/README.md) | Zoom out to 0.025 instead of 0.10 (and the things that scale with the zoom range). | 9 in Client, render_mixin |  |

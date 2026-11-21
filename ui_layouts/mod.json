@@ -1,0 +1,8 @@
+{
+  "description": "UI LAYOUTS: save where the HUD's windows sit under a name and switch between the layouts, e.g. one per screen (ui_layouts_window.py).",
+  "requires": [
+    "core"
+  ],
+  "category": "features",
+  "recommended": true
+}
