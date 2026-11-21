@@ -8,7 +8,7 @@
     modctl.bat remove NAME [...]    take mods out of mods/ (refuses while another mod in mods/ needs one)
     modctl.bat check                list the mods that no longer fit the game (the launch file does this on every start)
 
-mods_available/ is the mods branch of the repository (or a folder of mods you were given). Copying a mod folder from it
+mods_available/ is the mods_available branch of the repository (or a folder of mods you were given). Copying a mod folder from it
 into mods/ by hand works too; this only saves looking up what each one needs, and leaves out the mods' test files.
 Standard library only.
 """
@@ -55,7 +55,7 @@ def add(names, available_dir: str = AVAILABLE, installed_dir: str = INSTALLED) -
 
 
 # What is not copied out of a mod's folder: caches, the mod's own tests, and its README and screenshots (the repository's
-# mods branch keeps them beside the code; they are for choosing a mod, the game does not need them).
+# mods_available branch keeps them beside the code; they are for choosing a mod, the game does not need them).
 NOT_COPIED = shutil.ignore_patterns("__pycache__", "*.pyc", "test_*", "conftest.py", "expected_failures.txt",
                                     "README.md", "screenshots")
 

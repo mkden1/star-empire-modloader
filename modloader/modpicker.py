@@ -442,7 +442,7 @@ class Picker:
         pygame.draw.rect(surface, PANEL, panel, border_radius=self.px(6))
         entry = self.catalog.by_name.get(self.selected)
         if entry is None:
-            text = ("There are no mods to choose from yet. Put the mods (the repository's \"mods\" branch) in a folder called "
+            text = ("There are no mods to choose from yet. Clone the repository's mods_available branch into a folder called "
                     "mods_available next to this program.")
             for i, line in enumerate(wrap_runs([(text, "normal")], self.fonts, "body", panel.w - self.px(28))):
                 x = panel.x + self.px(14)

@@ -1,5 +1,5 @@
 # The ready-to-run folder. The game is installed into it by the official launcher, the mods are copied into mods/, and
-# mods_available/ is the repository's "mods" branch: none of that is part of this branch.
+# mods_available/ is the repository's "mods_available" branch: none of that is part of this branch.
 /Client.exe
 /version.txt
 /prune_list.txt

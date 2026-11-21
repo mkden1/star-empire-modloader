@@ -27,9 +27,9 @@ folder and are used only by this launcher.
 
 GETTING MODS
 ------------
-The mods are in their own branch of this project, called "mods". Get it into a folder named "mods_available" here:
+The mods are in their own branch of this project, called "mods_available". Clone it into a folder of the same name here:
 
-    git clone --branch mods --single-branch <the address of this project> mods_available
+    git clone --branch mods_available --single-branch <the address of this project> mods_available
 
 (or download that branch as a zip and unzip it into a folder called "mods_available"). Every mod is a folder in it.
 
