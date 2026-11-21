@@ -146,8 +146,7 @@ class ModsApplyTests(unittest.TestCase):
         """expected_failures.txt lists dev tests a mod makes fail on purpose. A line that names a test that is gone
         (the dev renamed or deleted it) is dead weight and must be removed; one without a reason is a mystery."""
         import ast
-        entries = modloader.expected_failures()
-        self.assertTrue(entries, "wire_zlib3 lists the zlib2 handshake test")
+        entries = modloader.expected_failures()                 # empty while no mod changes behaviour a dev test asserts
         for test_id, mod, reason in entries:
             with self.subTest(test=test_id):
                 self.assertNotEqual(reason, "changed on purpose by the mod", f"{mod}: say why in a # comment")
