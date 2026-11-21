@@ -2,23 +2,12 @@
 
 @@ # @@
 -    CAM_MIN_ZOOM = 0.10
-+    #
-+    # "can you make it so that I am able to zoom out more and see more of
-+    # what is around me?" -- the player already starts at CAM_MIN_ZOOM (see
-+    # __init__'s "default zoom (fully zoomed out)" below), so there was no
-+    # existing headroom to unlock; the cap itself had to move. 0.05 restores
-+    # this class's own docstring value above (the zoom line already read
-+    # "0.05x ... 0.4x" — CAM_MIN_ZOOM had drifted to 0.10 without that
-+    # comment being updated, so this both grants the request and makes the
-+    # docstring accurate again). Since _cam_unit (render_mixin's minimap
-+    # viewport sizing) and every zoom clamp all derive from this constant
-+    # (confirmed: no other file hardcodes 0.10 independently), nothing else
-+    # needs to change for the wider view to take effect everywhere.
-+    # Halving the zoom doubles the visible span on each axis -- roughly 4x
-+    # the visible AREA, so a crowded scene now renders more entities at
-+    # once than before; worth knowing if a very busy system feels heavier
-+    # zoomed all the way out.
-+    CAM_MIN_ZOOM = 0.05
++    # How far the camera zooms out. The game stops at 0.10; this mod first allowed 0.05 and now allows 0.025. Every
++    # zoom clamp, the minimap's viewport unit (_cam_unit in render_mixin) and the sizes patched below read this
++    # constant, so they follow it. The wheel's stops are this floor and the multiples of 0.05 (zoom_floor.py), and
++    # render_mixin's _COMET_REF_ZOOM has to say the same number (a test checks it). Halving the zoom doubles the visible
++    # width and height (4x the area), so a crowded system draws more at once when zoomed all the way out.
++    CAM_MIN_ZOOM = 0.025
 
 @@ _ALL_ZOOM_BUCKETS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40] @@
 -        _ALL_ZOOM_BUCKETS = [0.10, 0.15, 0.20, 0.25, 0.30, 0.35, 0.40]
@@ -47,3 +36,16 @@
 +            self._gl.glow_radius = max(0.5, min(1.0, 0.5 + (
 +                (self._zoom - self.CAM_MIN_ZOOM)
 +                * (0.5 / (self.CAM_MAX_ZOOM - self.CAM_MIN_ZOOM)))))
+
+@@ _zoom_b = round(self._zoom * 20) / 20 @@
+-            _zoom_b = round(self._zoom * 20) / 20
++            # The zoom every size this frame is made at: the game's 0.05 grid, but never below the floor (0.025 rounds to 0.0).
++            _zoom_b = max(self.CAM_MIN_ZOOM, round(self._zoom * 20) / 20)   # MOD: zoom_floor
+
+@@ self._zoom = max(self.CAM_MIN_ZOOM, min(self.CAM_MAX_ZOOM, self._zoom + int(direction) * 0.05)) @@
+-        self._zoom = max(
+-            self.CAM_MIN_ZOOM,
+-            min(self.CAM_MAX_ZOOM, self._zoom + int(direction) * 0.05),
+-        )
++        import zoom_floor  # MOD: the wheel's stops are the floor and the multiples of 0.05 (zoom_floor.py)
++        self._zoom = zoom_floor.step(self._zoom, direction, self.CAM_MIN_ZOOM, self.CAM_MAX_ZOOM)

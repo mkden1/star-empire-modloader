@@ -46,7 +46,7 @@ A unified diff without line numbers. Each hunk says "find these lines, change th
 
 @@ the zoom floor @@
 -    CAM_MIN_ZOOM = 0.10                                                     <- replaced (must match)
-+    CAM_MIN_ZOOM = 0.05
++    CAM_MIN_ZOOM = 0.025
 ```
 
 * A line starting with a space is context, `-` is removed, `+` is added. A blank context line is a single space
@@ -251,4 +251,4 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`station_profile`](station_profile/README.md) | A snapshot of each player station when you undock (station_profile.py). | 2 in Client | core |
 | [`target_info`](target_info/README.md) | Planet orbit period and a gate's sun distance and bearing in the target panel. | 6 in Client | core |
 | [`ui_pages`](ui_pages/README.md) | ESC-menu pages: UI Panels (hide or show HUD panels), Data Capture (capture_settings_panel.py) and Mods (mods_page.py: which mods are loaded, and why one is not). | 40 in Client, render_mixin | core |
-| [`zoom_floor`](zoom_floor/README.md) | Zoom out to 0.05 instead of 0.10 (and the things that scale with the zoom range). | 6 in Client, render_mixin |  |
+| [`zoom_floor`](zoom_floor/README.md) | Zoom out to 0.025 instead of 0.10 (and the things that scale with the zoom range). | 9 in Client, render_mixin |  |

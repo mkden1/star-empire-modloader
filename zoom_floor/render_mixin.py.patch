@@ -1,13 +1,13 @@
 # zoom_floor: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
 
-@@ _COMET_REF_ZOOM = 0.05 # camera zoom the layout is calibrated to @@
+@@ _COMET_REF_ZOOM = 0.025 # camera zoom the layout is calibrated to @@
 -    _COMET_REF_ZOOM  = 0.10          # camera zoom the layout is calibrated to — the
 -                                     # farthest zoom-out (matches the client's min zoom)
-+    _COMET_REF_ZOOM  = 0.05          # camera zoom the layout is calibrated to — the
++    _COMET_REF_ZOOM  = 0.025         # camera zoom the layout is calibrated to — the
 +                                     # farthest zoom-out (must match App.CAM_MIN_ZOOM;
 +                                     # a bare class attribute can't read self.CAM_MIN_ZOOM
 +                                     # directly, so this needs updating by hand if that
-+                                     # constant ever changes again)
++                                     # constant ever changes again; test_zoom_floor.py checks it)
 
 @@ # Scale ambient shuttles gently with the solar-system zoom: tiny @@
 -        # Scale ambient shuttles gently with the solar-system zoom: tiny at the
@@ -24,3 +24,7 @@
 +        shuttle_zoom_t = max(0.0, min(1.0, (
 +            (ctx.zoom_b - self.CAM_MIN_ZOOM)
 +            / (self.CAM_MAX_ZOOM - self.CAM_MIN_ZOOM))))
+
+@@ return round(z * 20) / 20 @@
+-        return round(z * 20) / 20
++        return max(self.CAM_MIN_ZOOM, round(z * 20) / 20)   # MOD: zoom_floor: never 0 (0.025 rounds to 0.0 on the 0.05 grid)
