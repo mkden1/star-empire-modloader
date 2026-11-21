@@ -15,8 +15,8 @@ file is read once, at import (client start-up), never on the game's threads.
 
 Everything defaults to ON, so nothing changes until a switch is flipped. ``capture_all`` is a
 master switch over the data loggers; ``freeze_watchdog`` and ``click_diag`` are separate (they write to the
-client log, not scan_data, and are applied live), and so is ``sound_prefetch`` (it only READS the weapon
-sound files, once, to warm the file cache; turning it on starts that read, turning it off does not undo it).
+client log, not scan_data, and are applied live). Only recorders and diagnostics have a switch: an optimisation
+(the prefetch mods) is on while its mod is in mods/ and off when it is not.
 
 Only the real files are gated: a logger called with an explicit ``out_path`` (the tests) always
 records, so a developer's own settings can never make a test pass or fail.
@@ -54,9 +54,8 @@ DATA_ENTRIES = (
 )
 WATCHDOG = "freeze_watchdog"
 CLICK_DIAG = "click_diag"          # one client-log line per left click (click_diag.py); like the watchdog, not scan_data
-SOUND_PREFETCH = "sound_prefetch"  # read the weapon sounds ahead (sound_prefetch.py): reads, never writes, scan_data
 DATA_KEYS = tuple(k for k, _, _, _ in DATA_ENTRIES)
-ALL_KEYS = (MASTER,) + DATA_KEYS + (WATCHDOG, CLICK_DIAG, SOUND_PREFETCH)
+ALL_KEYS = (MASTER,) + DATA_KEYS + (WATCHDOG, CLICK_DIAG)
 
 # The mod(s) that use each switch (names of folders in mods/). The Data Capture page lists a switch only when one of its
 # mods is in effect, so a player who did not pick a recorder is not shown its options. ``MASTER`` has no owner of its own:
@@ -66,7 +65,7 @@ OWNERS = {
     "station_logs": ("station_logs",), "planet_scans": ("scan_capture",), "station_ids": ("scan_capture",),
     "shuttle_routes": ("colony_scan",), "trade_bot_slots": ("scan_capture",),
     "colony_scan": ("colony_scan", "station_profile"),            # one switch for both, see the module note
-    WATCHDOG: ("freeze_watchdog",), CLICK_DIAG: ("click_diag",), SOUND_PREFETCH: ("sound_prefetch",),
+    WATCHDOG: ("freeze_watchdog",), CLICK_DIAG: ("click_diag",),
 }
 
 _DEFAULTS = {k: True for k in ALL_KEYS}
@@ -123,8 +122,6 @@ def set_enabled(key: str, value: bool) -> None:
     submit(_save, _path, dict(_state))
     if key == WATCHDOG:
         _apply_watchdog(value)
-    elif key == SOUND_PREFETCH and value:
-        _apply_sound_prefetch()
 
 
 def toggle(key: str) -> bool:
@@ -142,16 +139,6 @@ def _apply_watchdog(on: bool) -> None:
             freeze_watchdog.stop()
     except Exception:
         logger.exception("capture_settings: could not apply the freeze_watchdog switch")
-
-
-def _apply_sound_prefetch() -> None:
-    """Switched ON in the page: start the read-ahead now (it only needs the folder the audio set-up
-    reported; before that there is nothing to do and the hook starts it)."""
-    try:
-        import sound_prefetch
-        sound_prefetch.start()
-    except Exception:
-        logger.exception("capture_settings: could not apply the sound_prefetch switch")
 
 
 def _save(path: str, state: "dict[str, bool]") -> None:

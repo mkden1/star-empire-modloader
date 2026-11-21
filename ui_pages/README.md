@@ -4,8 +4,8 @@ Three pages in the ESC menu: hide or show HUD panels, switch the data recorders,
 
 ## What it does
 
-- **UI Panels**: switches to hide or show the Inventory, Target, Turret control, Fighter control, Squad roster, Fighters / Drones, Chat, Minimap, Coalition, Friends and Combat Log panels. Your choices are remembered.
-- **Data Capture**: one switch per recorder (planet scans, station logs, colony and station state, the freeze watchdog, click diagnostics, sound prefetch, and so on), so a recorder can be turned off without editing anything. Only the switches of mods you have picked are listed (no `scan_capture`, no planet-scan switch); with none of those mods the page says so.
+- **UI Panels**: switches to hide or show the Inventory, Target, Turret control, Fighter control, Squad roster, Fighters / Drones, Chat, Minimap, Coalition, Friends and Combat Log panels (the Squad roster, Fighters / Drones and Combat Log rows appear only when their mods, `squad_hud` and `combat_log`, are in effect). Your choices are remembered.
+- **Data Capture**: one switch per recorder (planet scans, station logs, colony and station state, the freeze watchdog, click diagnostics, and so on), so a recorder can be turned off without editing anything. Only the switches of mods you have picked are listed (no `scan_capture`, no planet-scan switch); with none of those mods the page says so.
 - **Mods**: a grid of every mod with a dot: green = in effect, red = switched off because the game's code changed under one of its patches (the box says why), grey = turned off on purpose, blue = a library other mods use. The box under the grid says what the hovered or clicked mod does and which parts of the game it patches.
 
 ## Using it

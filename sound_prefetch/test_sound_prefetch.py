@@ -3,8 +3,8 @@ loads are logged.
 
 Background: the first-ever weapon sound is read from disk on the message thread while it holds the
 window's lock, and one cold read froze the whole game for 5.4 s (2026-10-22). These tests pin that the
-read-ahead happens off the calling thread, honours its switch (also live, from the Data Capture page),
-never breaks the audio set-up it hooks, and that the real Audio module is hooked."""
+read-ahead happens off the calling thread, has no switch (it is an optimisation: the mod being installed is the
+switch), never breaks the audio set-up it hooks, and that the real Audio module is hooked."""
 import os
 import tempfile
 import threading
@@ -13,8 +13,6 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-import capture_settings
-import scan_writer
 import sound_prefetch
 
 
@@ -33,9 +31,6 @@ class _Fixture(unittest.TestCase):
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
-        self.addCleanup(scan_writer.flush)
-        capture_settings.configure_for_tests(os.path.join(self._tmp.name, "capture_settings.json"))
-        self.addCleanup(capture_settings.configure_for_tests, None)
         sound_prefetch.reset_for_tests()
         self.addCleanup(sound_prefetch.reset_for_tests)
         self.folder = Path(self._tmp.name) / "Weapons"
@@ -121,48 +116,6 @@ class StartTests(_Fixture):
         self.assertEqual(sorted(calls), ["B.WAV", "a.wav", "c.wav"])
         self.assertNotIn(str(self.folder / "a.wav"), sound_prefetch._warmed_at)
         self.assertIn(str(self.folder / "c.wav"), sound_prefetch._warmed_at)
-
-
-class SwitchTests(_Fixture):
-    def test_switched_off_nothing_is_read(self):
-        capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, False)
-        calls = self.spy_reads()
-        self.assertFalse(sound_prefetch.start(self.folder))
-        self.assertTrue(_join_prefetch_threads())
-        self.assertEqual(calls, [])
-
-    def test_turning_it_on_in_the_page_starts_the_read_of_the_folder_the_audio_reported(self):
-        capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, False)
-        calls = self.spy_reads()
-        sound_prefetch.start(self.folder)                  # what the AudioManager hook does at launch
-        self.assertEqual(calls, [])
-        capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, True)
-        self.assertTrue(_join_prefetch_threads())
-        self.assertEqual(len(calls), 3)
-
-    def test_turning_it_on_before_any_audio_exists_does_nothing_and_does_not_fail(self):
-        capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, False)
-        with self.assertNoLogs(capture_settings.logger, "ERROR"):
-            capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, True)
-        self.assertTrue(_join_prefetch_threads())
-
-    def test_turning_it_off_does_not_start_anything(self):
-        calls = self.spy_reads()
-        sound_prefetch.reset_for_tests()
-        sound_prefetch._directory = self.folder
-        capture_settings.set_enabled(capture_settings.SOUND_PREFETCH, False)
-        self.assertTrue(_join_prefetch_threads())
-        self.assertEqual(calls, [])
-
-    def test_it_is_on_by_default_and_listed_on_the_page(self):
-        self.assertTrue(capture_settings.enabled(capture_settings.SOUND_PREFETCH))
-        self.assertIn(capture_settings.SOUND_PREFETCH, capture_settings.ALL_KEYS)
-        import capture_settings_panel
-        self.assertIn(capture_settings.SOUND_PREFETCH, [key for key, _label in capture_settings_panel._rows()])
-
-    def test_the_master_switch_does_not_govern_it(self):
-        capture_settings.set_enabled(capture_settings.MASTER, False)
-        self.assertTrue(capture_settings.enabled(capture_settings.SOUND_PREFETCH))
 
 
 class TimedLoadTests(_Fixture):
@@ -251,7 +204,7 @@ class InstallTests(_Fixture):
         module, order = self.make_module()
         with self.assertLogs(sound_prefetch.logger, "ERROR"):
             with mock.patch.object(sound_prefetch, "_directory", None), \
-                    mock.patch.object(sound_prefetch.capture_settings, "enabled", side_effect=RuntimeError("x")):
+                    mock.patch.object(sound_prefetch.threading, "Thread", side_effect=RuntimeError("x")):
                 sound_prefetch.install(module)
                 module.AudioManager(Path("Sounds"))
         self.assertEqual(order, [("init", Path("Sounds"), None)])

@@ -142,6 +142,17 @@ class OwnerTests(unittest.TestCase):
             with self.subTest(switch=key):
                 self.assertTrue(any(asked), f"none of {owners} asks for {key!r}")
 
+    def test_only_recorders_and_diagnostics_have_a_switch_never_an_optimisation(self):
+        """The page is "what this client records": a speed fix (the prefetch mods ...) is on while its mod is installed and
+        has no row, so it can never be mistaken for a recorder."""
+        import json
+        import modloader
+        for key, owners in capture_settings.OWNERS.items():
+            for owner in owners:
+                meta = json.loads((Path(modloader.MODS_DIR) / owner / "mod.json").read_text(encoding="utf-8-sig"))
+                with self.subTest(switch=key, mod=owner):
+                    self.assertIn(meta.get("category"), ("recorders", "diagnostics"))
+
     def test_a_switch_is_listed_only_when_one_of_its_mods_is_in_effect(self):
         mods = {"scan_capture", "click_diag"}
         for key, expected in (("bot_fleet", True), ("combat", True), ("click_diag", True), ("station_logs", False),
@@ -152,7 +163,7 @@ class OwnerTests(unittest.TestCase):
 
     def test_the_master_is_listed_with_any_data_switch_but_not_for_diagnostics_alone(self):
         self.assertTrue(capture_settings.listed(capture_settings.MASTER, {"station_logs"}))
-        self.assertFalse(capture_settings.listed(capture_settings.MASTER, {"click_diag", "freeze_watchdog", "sound_prefetch"}))
+        self.assertFalse(capture_settings.listed(capture_settings.MASTER, {"click_diag", "freeze_watchdog", "music_prefetch"}))
         self.assertFalse(capture_settings.listed(capture_settings.MASTER, set()))
 
     def test_nothing_is_hidden_when_no_mod_loader_is_running(self):

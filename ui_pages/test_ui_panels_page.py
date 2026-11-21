@@ -69,6 +69,21 @@ class DrawTests(unittest.TestCase):
         self.assertIn("uip_friends", window._opt_rects)
         self.assertIn("uip_close", window._opt_rects)
 
+    def test_without_the_squad_hud_mod_the_page_has_no_squad_or_fighter_rows_and_the_rest_stay_in_order(self):
+        """The rosters' panels are registered by the squad_hud mod; a row for a panel that is not there would read ON."""
+        screen = pygame.Surface(SCREEN, pygame.SRCALPHA)
+        window = make_window(_ui_panels_settings_open=True)
+        window._panels = {name: {"hidden": False} for name in PANEL_ROWS if name not in ("squad_hud", "fighter_hud")}
+        window._chat_panel = {"hidden": False}
+        window._mm_open, window._coalition_open, window._friends_open, window._combat_log_open = True, False, False, True
+        window._draw_esc_menu(SimpleNamespace(screen=screen))
+        self.assertNotIn("uip_squad_hud", window._opt_rects)
+        self.assertNotIn("uip_fighter_hud", window._opt_rects)
+        order = sorted((r.y, k) for k, r in window._opt_rects.items() if k.startswith("uip_") and k != "uip_panel")
+        self.assertEqual([k for _y, k in order],
+                         ["uip_inventory", "uip_target", "uip_turrets", "uip_fighter_control", "uip_chat", "uip_minimap",
+                          "uip_coalition", "uip_friends", "uip_combat_log", "uip_close"])
+
     def test_with_the_combat_log_mod_the_row_is_the_last_toggle(self):
         window, _screen = self.draw()
         self.assertIn("uip_combat_log", window._opt_rects)

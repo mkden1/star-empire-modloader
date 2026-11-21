@@ -41,10 +41,13 @@ def draw(self, screen, _sw, _sh, _cached_label, font_med, font_sm) -> None:
          not self._panels.get("turrets", {}).get("hidden")),
         ("uip_fighter_control", "Fighter Fabricator",
          not self._panels.get("fighter_control", {}).get("hidden")),
-        ("uip_squad_hud", "Squad Roster",
-         not self._panels.get("squad_hud", {}).get("hidden")),
-        ("uip_fighter_hud", "Fighters / Drones",
-         not self._panels.get("fighter_hud", {}).get("hidden")),
+    ]
+    # The squad and fighter rosters are the squad_hud mod's: it registers their panels. No row without it (a row for a
+    # panel that does not exist would read "ON" and do nothing).
+    for _pid, _label in (("squad_hud", "Squad Roster"), ("fighter_hud", "Fighters / Drones")):
+        if _pid in self._panels:
+            _rows.append((f"uip_{_pid}", _label, not self._panels[_pid].get("hidden")))
+    _rows += [
         ("uip_chat", "Chat",
          not self._chat_panel.get("hidden")),
         ("uip_minimap", "Minimap", bool(self._mm_open)),

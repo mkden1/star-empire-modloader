@@ -1,5 +1,5 @@
 {
   "description": "Zoom out to 0.05 instead of 0.10 (and the things that scale with the zoom range).",
   "category": "features",
-  "recommended": false
+  "recommended": true
 }

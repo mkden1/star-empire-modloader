@@ -9,7 +9,7 @@ Records the live state of your colony stations and the wiring of your orbital sh
 
 ## Using it
 
-- Nothing to do: it works in the background. Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod). (the switch is called "Colony & station state").
+- Nothing to do: it works in the background. Its switches are on the Data Capture page of the ESC menu (needs the `ui_pages` mod): "Colony & station state" and "Shuttle routes".
 
 ## Needs
 

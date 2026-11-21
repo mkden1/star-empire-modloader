@@ -29,8 +29,7 @@ def _rows() -> "list[tuple[str, str]]":
     if listed(capture_settings.MASTER):
         rows.append((capture_settings.MASTER, "All data capture"))
     rows += [(key, label) for key, label, _file, _note in capture_settings.DATA_ENTRIES if listed(key)]
-    for key, label in ((capture_settings.WATCHDOG, "Freeze watchdog"), (capture_settings.CLICK_DIAG, "Click diagnostics"),
-                       (capture_settings.SOUND_PREFETCH, "Sound prefetch")):
+    for key, label in ((capture_settings.WATCHDOG, "Freeze watchdog"), (capture_settings.CLICK_DIAG, "Click diagnostics")):
         if listed(key):
             rows.append((key, label))
     return rows

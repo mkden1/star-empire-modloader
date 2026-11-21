@@ -9,11 +9,11 @@ Reads the weapon sound files ahead on a background thread.
 
 ## Using it
 
-- Nothing to do: it works in the background. Its switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod), where it is called "Sound prefetch".
+- Nothing to do: it works in the background. It has no switch (it is an optimisation, not a recorder): take the mod out with Choose Mods.bat to stop it.
 
 ## Needs
 
-`core`. `modctl add` copies what a mod needs for you; copying by hand, copy these folders too.
+Nothing else.
 
 ## Under the hood
 

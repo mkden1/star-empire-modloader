@@ -9,7 +9,7 @@ Writes one client-log line per left click saying what was in range and what the 
 
 ## Using it
 
-- Nothing to do: it works in the background. Look for `click_diag:` lines in the client log (`star_empire_client.log`). Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod).
+- Nothing to do: it works in the background. Look for `click_diag:` lines in the client log (`star_empire_client.log`). Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod), where it is called "Click diagnostics".
 
 ## Needs
 

@@ -9,7 +9,7 @@ Passively records scans, inventories, skills, stations and bot state from server
 
 ## Using it
 
-- Nothing to do: it works in the background. Each recorder has its own switch. Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod).
+- Nothing to do: it works in the background. Each recorder has its own switch on the Data Capture page of the ESC menu (needs the `ui_pages` mod): "Trade bot states", "Bot leg times", "Combat & gear capture", "Planet scans", "Station IDs" and "Trade bot slots", under the master switch "All data capture".
 
 ## Needs
 

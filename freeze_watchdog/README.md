@@ -9,7 +9,7 @@ Writes a stack dump to the log when a thread stalls, so a freeze explains itself
 
 ## Using it
 
-- Nothing to do: it works in the background. Look for the dumps in the client log (`star_empire_client.log`). Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod).
+- Nothing to do: it works in the background. Look for the dumps in the client log (`star_empire_client.log`). Its on/off switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod), where it is called "Freeze watchdog".
 
 ## Needs
 

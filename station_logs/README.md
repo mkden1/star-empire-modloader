@@ -10,6 +10,7 @@ The Logs tab loads older pages by itself, and every row it shows is saved.
 ## Using it
 
 - Open a station's Logs tab and let it page back.
+- Its switch is on the Data Capture page of the ESC menu (needs the `ui_pages` mod), where it is called "Station logs".
 
 ## Needs
 

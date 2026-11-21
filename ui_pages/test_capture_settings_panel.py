@@ -155,8 +155,8 @@ class OnlyInstalledModsTests(_Fixture):
         self.assertEqual(self.rows_with({"scan_capture", "freeze_watchdog"}),
                          [capture_settings.MASTER, "bot_fleet", "bot_legs", "combat", "planet_scans", "station_ids",
                           "trade_bot_slots", "freeze_watchdog"])
-        self.assertEqual(self.rows_with({"station_profile", "sound_prefetch"}),
-                         [capture_settings.MASTER, "colony_scan", "sound_prefetch"])
+        self.assertEqual(self.rows_with({"station_profile", "sound_prefetch", "music_prefetch"}),     # optimisations: no row
+                         [capture_settings.MASTER, "colony_scan"])
 
     def test_everything_is_listed_when_no_mod_loader_is_running_or_every_mod_is_in_effect(self):
         self.assertEqual(self.rows_with(None), list(capture_settings.ALL_KEYS))
@@ -187,6 +187,22 @@ class OnlyInstalledModsTests(_Fixture):
             self.draw_menu(window)
             rows = {name[4:] for name in window._capture_rects if name.startswith("row:")}
         self.assertEqual(rows, {capture_settings.MASTER, "station_logs", "click_diag"})
+
+
+class NamesMatchTests(unittest.TestCase):
+    """What the page calls a switch is what the mod's README (and so the mod picker) calls it."""
+
+    def test_every_row_is_named_in_the_readme_of_each_mod_that_owns_it(self):
+        with mock.patch.object(capture_settings, "installed_mods", return_value=None):
+            rows = capture_settings_panel._rows()
+        self.assertGreater(len(rows), 5)
+        for key, label in rows:
+            if key == capture_settings.MASTER:
+                continue
+            for owner in capture_settings.OWNERS[key]:
+                readme = (Path(modloader.MODS_DIR) / owner / "README.md").read_text(encoding="utf-8")
+                with self.subTest(row=label, mod=owner):
+                    self.assertIn(label.rstrip("*"), readme, f"{owner}'s README must say its switch is called {label!r}")
 
 
 class HookTests(unittest.TestCase):

@@ -18,9 +18,8 @@ things without touching the vanilla source:
     the thread, and whether the read-ahead had reached it - a stall that is not the drive then shows
     up as such.
 
-The switch is "Sound prefetch" on the Data Capture page (capture_settings.SOUND_PREFETCH, on by
-default). Turning it on in the page starts the read at once; turning it off only stops a read that has
-not begun (a file cache cannot be taken back).
+There is no switch: it is an optimisation, not a recorder, so the mod being in mods/ is what turns it on (a file
+cache cannot be taken back anyway).
 """
 
 from __future__ import annotations
@@ -31,7 +30,6 @@ import threading
 import time
 from pathlib import Path
 
-import capture_settings
 
 logger = logging.getLogger(__name__)
 
@@ -49,14 +47,13 @@ def start(directory=None) -> bool:
     """Begin reading every .wav in ``directory`` on a background thread. True if a read began.
 
     ``directory`` is remembered, so a later ``start()`` (the page's switch being turned on) reads the
-    same folder. No-op when the switch is off, when the folder was already read this session, or when
-    it does not exist. Never blocks, never raises."""
+    same folder. No-op when the folder was already read this session or does not exist. Never blocks, never raises."""
     global _directory
     try:
         if directory is not None:
             _directory = Path(directory)
         folder = _directory
-        if folder is None or not capture_settings.enabled(capture_settings.SOUND_PREFETCH):
+        if folder is None:
             return False
         key = str(folder)
         with _lock:
