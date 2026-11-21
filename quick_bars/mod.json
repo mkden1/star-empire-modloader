@@ -1,0 +1,8 @@
+{
+  "description": "QUICK BARS: rebind the quick action slot keys and the game's one-press hotkeys, with Ctrl / Shift / Alt (quick_bars_window.py, quick_keys.py).",
+  "requires": [
+    "core"
+  ],
+  "category": "features",
+  "recommended": false
+}

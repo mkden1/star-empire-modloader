@@ -1,0 +1,70 @@
+# quick_bars: patches to the game's Client.py (every hunk only adds lines)
+
+@@ import quick_bars_window # MOD: key bindings, quick action bars @@
+ from arena_client import ArenaClientMixin
++import quick_bars_window  # MOD: rebind the quick action slots and the game's hotkeys, several quick action bars (quick_bars_window.py)
++import quick_keys  # MOD: the key handling those bindings need (quick_keys.py)
+
+@@ self._menu_quick_bars_rect = None # MOD @@
+             self._menu_shop_rect = None
++            self._menu_quick_bars_rect = None   # MOD
+
+@@ # MOD: key bindings (quick_bars_window.py) @@
+             ("market", "GLOBAL MARKET NETWORK", self._market_open, "", False),
++            # MOD: key bindings (quick_bars_window.py)
++            ("quick_bars", "KEY BINDINGS", quick_bars_window.is_open(self), "", False),
+
+@@ self._menu_quick_bars_rect = item_rects["quick_bars"] # MOD @@
+         self._menu_shop_rect = item_rects.get("shop")
++        self._menu_quick_bars_rect = item_rects["quick_bars"]   # MOD
+
+@@ _frame_events = quick_bars_window.filter_events(self, _frame_events) # MOD @@
+             _frame_events = pygame.event.get()
++            _frame_events = quick_bars_window.filter_events(self, _frame_events)   # MOD: the Key Bindings window's clicks and keys
+
+@@ elif _cmd in ("keys", "keybinds"): @@
+                                                 "/roll is available in System and Squad chat.",
+                                                 (255, 180, 80))
++                                    elif _cmd in ("keys", "keybinds"):
++                                        # MOD: /keys - the Key Bindings window (quick_bars_window.py)
++                                        quick_bars_window.handle_command(self, _msg)
+
+@@ if (self._menu_open ... KEY BINDINGS @@
++                    if (self._menu_open
++                            and _gui_route_allows("menu_popup")
++                            and getattr(self, "_menu_quick_bars_rect", None)
++                            and self._menu_quick_bars_rect.collidepoint(event.pos)):
++                        # MOD: KEY BINDINGS (quick_bars_window.py)
++                        self._menu_open = False
++                        quick_bars_window.toggle(self)
++                        continue
+                     if (self._menu_open
+                             and _gui_route_allows("menu_popup")
+                             and not (self._menu_popup_rect and
+
+@@ quick_bars_window.queue(self, _frame) # MOD @@ order=0
+                 _managed_draw_wrapper = _profile_managed_draw
++            quick_bars_window.queue(self, _frame)   # MOD: the Key Bindings window joins the retained windows
+
+@@ the key bindings: after the repeat guard, before the one-press hotkeys @@
+                     if event.key in self._keys_held:
+                         continue
+                     self._keys_held.add(event.key)
++                    # MOD: the player's key bindings (quick_keys.py): a rebound hotkey comes back as the key the game knows it by,
++                    # a quick action slot or tab key is carried out there, the old key of an action that moved does nothing.
++                    event, _qb_consumed = quick_keys.on_key_down(self, event)
++                    if _qb_consumed:
++                        continue
+
+                     # Ctrl+Space engages a 60-second primary-weapon hold against
+
+@@ # MOD: the KEY BINDINGS window - rebind the quick action slots and the game's hotkeys @@
+     _show_use_launcher_message()
+     sys.exit(1)
+
+
++# MOD: the KEY BINDINGS window - rebind the quick action slots and the game's hotkeys (quick_bars_window.py, quick_keys.py).
++# Keeps the flight keys quiet while a new key is awaited; globals(), not sys.modules[__name__] (run_client.py exec()s this
++# file as __main__). Off with STAR_EMPIRE_NO_QUICK_BARS=1 (the key handling alone: STAR_EMPIRE_NO_QUICK_KEYS=1).
++quick_bars_window.install(SolarSystemWindow, globals())
++

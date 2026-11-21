@@ -1,0 +1,6 @@
+# quick_bars: patches to the game's render_mixin.py
+
+@@ the number on each slot's key tab @@
+-            _hb_num_txt = str(_hb_i + 1) if _hb_i < 9 else "0"
++            import quick_keys  # MOD: the key tab shows the key the slot is bound to (quick_keys.py)
++            _hb_num_txt = quick_keys.slot_label(self, _hb_i, str(_hb_i + 1) if _hb_i < 9 else "0")
