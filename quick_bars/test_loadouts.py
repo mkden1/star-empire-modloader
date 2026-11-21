@@ -110,6 +110,46 @@ class CleanSetupTests(unittest.TestCase):
         self.assertEqual(lo.setup_key(a), lo.setup_key(b))
 
 
+class MainPlaceTests(unittest.TestCase):
+    def test_a_setup_without_a_place_stays_without_one(self):
+        self.assertNotIn("main_place", lo.clean_setup(setup()))
+        self.assertNotIn("main_place", lo.setup_of(lo.new_loadout("W", setup(), when=1.0)))
+
+    def test_the_default_place_and_a_place_are_kept(self):
+        data = setup()
+        data["main_place"] = None
+        self.assertIsNone(lo.clean_setup(data)["main_place"])
+        self.assertIn("main_place", lo.clean_setup(data))
+        data["main_place"] = {"fx": 0.25, "fy": 1}
+        self.assertEqual(lo.clean_setup(data)["main_place"], {"fx": 0.25, "fy": 1.0})
+
+    def test_a_place_is_clamped_into_the_screen(self):
+        data = setup()
+        data["main_place"] = {"fx": -3, "fy": 7.5}
+        self.assertEqual(lo.clean_setup(data)["main_place"], {"fx": 0.0, "fy": 1.0})
+
+    def test_a_damaged_place_is_dropped_not_taken_for_the_default_place(self):
+        for junk in ("x", 5, [], {"fx": 0.5}, {"fx": "a", "fy": 0.5}, {"fx": True, "fy": 0.5}, {"fx": float("nan"), "fy": 0.5}):
+            data = setup()
+            data["main_place"] = junk
+            self.assertNotIn("main_place", lo.clean_setup(data), junk)
+
+    def test_the_place_is_part_of_what_makes_two_setups_the_same(self):
+        a, b, c = setup(), setup(), setup()
+        a["main_place"] = None
+        b["main_place"] = {"fx": 0.5, "fy": 0.5}
+        c["main_place"] = {"fx": 0.5, "fy": 0.6}
+        keys = {lo.setup_key(a), lo.setup_key(b), lo.setup_key(c), lo.setup_key(setup())}
+        self.assertEqual(len(keys), 4)
+
+    def test_it_survives_the_file(self):
+        data = setup()
+        data["main_place"] = {"fx": 0.123456, "fy": 0.5}
+        item = lo.new_loadout("W", data, when=1.0)
+        self.assertEqual(lo.normalize(json.loads(json.dumps(item)))["main_place"], {"fx": 0.123456, "fy": 0.5})
+        self.assertEqual(lo.setup_of(item)["main_place"], {"fx": 0.123456, "fy": 0.5})
+
+
 class LoadoutTests(unittest.TestCase):
     def test_a_new_loadout_has_an_id_a_name_a_time_and_the_setup(self):
         item = lo.new_loadout("  Warden   build ", setup(), when=1700000000.5)

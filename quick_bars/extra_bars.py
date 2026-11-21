@@ -304,10 +304,10 @@ def draw_bars(win, frame) -> None:
         return
     try:
         rt = ensure_loaded(win)
+        win_w, win_h = frame.win_w, frame.win_h
+        rt.size = (win_w, win_h)                          # (a loadout turns the game bar's place into fractions of it too)
         if not len(rt.barset):
             return
-        win_w, win_h = frame.win_w, frame.win_h
-        rt.size = (win_w, win_h)
         try:
             pressed = pygame.mouse.get_pressed()[0]
         except Exception:

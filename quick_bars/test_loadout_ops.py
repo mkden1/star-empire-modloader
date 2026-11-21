@@ -312,6 +312,153 @@ class LoadTests(Base):
         self.assertTrue(ops.load(self.win, item)[0])
 
 
+class MainPlaceTests(Base):
+    """Where the game's own bar sits is part of a loadout, as the extra bars' places are."""
+
+    def setUp(self):
+        super().setUp()
+        self.draw()                                          # the bar has been drawn: its size and the screen's are known
+        rect = self.win._hotbar_panel_rect
+        self.room = (teb.SCREEN[0] - rect.w, teb.SCREEN[1] - rect.h)
+
+    def move_main(self, x, y):
+        self.win._hotbar_pos_x, self.win._hotbar_pos_y = x, y
+
+    def pos(self):
+        return self.win._hotbar_pos_x, self.win._hotbar_pos_y
+
+    def with_place(self, name, place, **extra):
+        item = lo.new_loadout(name, {"main": [dict(FIGHTER)], "bars": [], "keys": {}, "main_place": place, **extra})
+        ops.STORE.save(item)
+        return item
+
+    def test_the_screen_is_known_even_with_no_extra_bar(self):
+        self.assertEqual(eb.runtime(self.win).size, teb.SCREEN)
+        self.assertEqual(len(eb.runtime(self.win).barset), 0)
+
+    def test_the_default_place_is_captured_as_none(self):
+        self.assertIsNone(ops.capture(self.win)["main_place"])
+
+    def test_a_moved_bar_is_captured_as_fractions_of_the_room_it_has(self):
+        self.move_main(200, 100)
+        place = ops.capture(self.win)["main_place"]
+        self.assertAlmostEqual(place["fx"], 200 / self.room[0], places=5)
+        self.assertAlmostEqual(place["fy"], 100 / self.room[1], places=5)
+
+    def test_a_moved_bar_with_no_screen_known_records_no_place_at_all(self):
+        win = teb.XWin(username="bob")                       # never drawn
+        win._hotbar_pos_x, win._hotbar_pos_y = 200, 100
+        self.assertNotIn("main_place", ops.capture(win))
+
+    def test_a_load_puts_the_bar_where_the_loadout_had_it_and_saves(self):
+        item = self.with_place("Placed", {"fx": 0.5, "fy": 0.25})
+        self.win.saves = 0
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), (round(0.5 * self.room[0]), round(0.25 * self.room[1])))
+        self.assertEqual(self.win.saves, 1)
+
+    def test_the_place_is_in_place_when_the_game_saves_its_bar(self):
+        item = self.with_place("Placed", {"fx": 0.5, "fy": 0.25})
+        seen = []
+        self.win._hotbar_save = lambda: seen.append(self.pos())
+        ops.load(self.win, item)
+        self.assertEqual(seen, [(round(0.5 * self.room[0]), round(0.25 * self.room[1]))])
+
+    def test_a_load_with_the_default_place_brings_the_bar_back_to_it(self):
+        self.move_main(300, 200)
+        item = self.with_place("Default", None)
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), (None, None))
+
+    def test_a_loadout_saved_before_places_were_kept_leaves_the_bar_where_it_is(self):
+        self.move_main(300, 200)
+        item = lo.new_loadout("Old", {"main": [dict(FIGHTER)], "bars": [], "keys": {}})
+        self.assertNotIn("main_place", item)
+        ops.STORE.save(item)
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), (300, 200))
+
+    def test_a_save_then_a_move_then_a_load_gives_back_exactly_the_pixels(self):
+        self.move_main(123, 57)
+        item = self.save("Here")
+        self.move_main(700, 400)
+        self.assertIsNone(ops.match(self.win))
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), (123, 57))
+        self.assertEqual(ops.match(self.win)["id"], item["id"])
+
+    def test_moving_the_bar_stops_the_loadout_being_what_you_have(self):
+        self.move_main(123, 57)
+        item = self.save("Here")
+        self.assertEqual(ops.match(self.win)["id"], item["id"])
+        self.move_main(124, 57)
+        self.assertIsNone(ops.match(self.win))
+        self.move_main(None, None)
+        self.assertIsNone(ops.match(self.win))
+
+    def test_the_default_place_is_a_place_to_match_too(self):
+        item = self.save("Default place")
+        self.assertEqual(ops.match(self.win)["id"], item["id"])
+        self.move_main(10, 10)
+        self.assertIsNone(ops.match(self.win))
+
+    def test_an_old_loadout_still_matches_wherever_the_bar_is(self):
+        old = lo.new_loadout("Old", ops.capture(self.win))
+        del old["main_place"]
+        ops.STORE.save(old)
+        self.assertEqual(ops.match(self.win)["id"], old["id"])
+        self.move_main(500, 300)
+        self.assertEqual(ops.match(self.win)["id"], old["id"])
+
+    def test_undo_puts_the_bar_back_exactly(self):
+        self.move_main(321, 111)
+        item = self.with_place("Elsewhere", {"fx": 0.9, "fy": 0.9})
+        ops.load(self.win, item)
+        self.assertNotEqual(self.pos(), (321, 111))
+        ops.undo(self.win)
+        self.assertEqual(self.pos(), (321, 111))
+
+    def test_a_load_that_fails_leaves_the_bar_where_it_was(self):
+        self.move_main(321, 111)
+        item = self.with_place("Broken", {"fx": 0.9, "fy": 0.9})
+        self.win._hotbar_layout_in = lambda data: (_ for _ in ()).throw(RuntimeError("no"))
+        with self.assertLogs("loadout_ops", level="ERROR"):
+            ok, _ = ops.load(self.win, item)
+        self.assertFalse(ok)
+        self.assertEqual(self.pos(), (321, 111))
+
+    def test_on_another_screen_size_the_bar_keeps_its_relative_place_and_is_still_the_current_loadout(self):
+        self.move_main(200, 100)
+        item = self.save("Small screen")
+        big = (1920, 1080)
+        self.draw(size=big)
+        rect = self.win._hotbar_panel_rect
+        room = (big[0] - rect.w, big[1] - rect.h)
+        self.move_main(5, 5)
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), (round(item["main_place"]["fx"] * room[0]), round(item["main_place"]["fy"] * room[1])))
+        self.assertEqual(ops.match(self.win)["id"], item["id"])
+
+    def test_a_place_outside_the_screen_is_kept_inside_it(self):
+        item = lo.new_loadout("Off", {"main": [], "bars": [], "keys": {}, "main_place": {"fx": 1.0, "fy": 1.0}})
+        ops.STORE.save(item)
+        ops.load(self.win, item)
+        self.assertEqual(self.pos(), self.room)
+
+    def test_a_place_cannot_be_put_before_the_screen_is_known(self):
+        win = teb.XWin(username="bob")                       # never drawn
+        win._refresh_class_skill_bindings = lambda: None
+        item = lo.new_loadout("Placed", {"main": [], "bars": [], "keys": {}, "main_place": {"fx": 0.5, "fy": 0.5}})
+        ok, _ = ops.load(win, item)
+        self.assertTrue(ok)
+        self.assertEqual((win._hotbar_pos_x, win._hotbar_pos_y), (None, None))
+
+    def test_the_place_of_a_loadout_is_in_the_file(self):
+        self.move_main(200, 100)
+        item = self.save("Here")
+        self.assertEqual(kb.read_file(self.path)["loadouts"][item["id"]]["main_place"], item["main_place"])
+
+
 class UndoTests(Base):
     def test_undo_brings_back_everything_the_load_replaced(self):
         self.arrange()

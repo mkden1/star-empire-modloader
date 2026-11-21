@@ -5,6 +5,9 @@ Pure Python: no pygame, no game imports.
 A loadout holds
 
   * ``main``  - what is in the slots of the game's own quick action bar, every tab (the list the game itself keeps in options.txt);
+  * ``main_place`` - where the game's own bar sits, as two fractions (``fx``, ``fy``) of the room the screen leaves it (so it keeps its
+    relative place at any window size, as the extra bars do), or None for its default place. A loadout saved before this was kept has
+    no ``main_place`` at all, and loading it leaves the game's bar where it is;
   * ``bars``  - the extra bars (bars.py): each with its name, its key set, its place, whether it is shown, and what is in its slots;
   * ``keys``  - the keys changed for those bars' slots (a bar's slot keys are part of the bar, so they travel with it).
 
@@ -66,7 +69,30 @@ def clean_setup(data) -> "dict | None":
                 continue
             if entry is None or (isinstance(entry, dict) and isinstance(entry.get("key"), str)):
                 keys[action_id] = copy.deepcopy(entry)
-    return {"main": main, "bars": [b.to_json() for b in barset], "keys": keys}
+    out = {"main": main, "bars": [b.to_json() for b in barset], "keys": keys}
+    if "main_place" in data:
+        place = clean_place(data["main_place"])
+        if place is not _BAD:
+            out["main_place"] = place
+    return out
+
+
+_BAD = object()
+
+
+def clean_place(value):
+    """A game bar place: None (the default place) or ``{"fx", "fy"}`` as fractions between 0 and 1; ``_BAD`` for anything else."""
+    if value is None:
+        return None
+    if not isinstance(value, dict):
+        return _BAD
+    out = {}
+    for key in ("fx", "fy"):
+        number = value.get(key)
+        if isinstance(number, bool) or not isinstance(number, (int, float)) or number != number:
+            return _BAD
+        out[key] = max(0.0, min(1.0, float(number)))
+    return out
 
 
 def setup_key(setup: dict) -> str:
@@ -82,7 +108,10 @@ def setup_key(setup: dict) -> str:
 
 
 def setup_of(loadout: dict) -> dict:
-    return {"main": loadout["main"], "bars": loadout["bars"], "keys": loadout["keys"]}
+    setup = {"main": loadout["main"], "bars": loadout["bars"], "keys": loadout["keys"]}
+    if "main_place" in loadout:
+        setup["main_place"] = loadout["main_place"]
+    return setup
 
 
 def new_loadout(name, setup: dict, when: "float | None" = None) -> dict:
