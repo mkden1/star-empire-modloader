@@ -58,7 +58,7 @@ range_rings.json.*.tmp
 ui_layouts.json
 ui_layouts.json.*.tmp
 
-# The quick bars mod's key bindings (and later its bars and loadouts) (quick_bars_window.py).
+# The quick bars mod's key bindings and extra bars, one entry per character (quick_bars_window.py).
 quick_bars.json
 quick_bars.json.*.tmp
 
