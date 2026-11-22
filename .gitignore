@@ -66,6 +66,10 @@ quick_bars.json.*.tmp
 mods_seen.json
 mods_seen.json.*.tmp
 
+# The mod update check's memory: the last version of the mods seen, its ETag and when it was checked (mod_updates.py).
+mod_updates.json
+mod_updates.json.*.tmp
+
 # What the mod loader wrote at the last start-up (which mods were switched off and why), and the compiled patched code it
 # caches when custom_build/ does not exist.
 mods_report.txt
