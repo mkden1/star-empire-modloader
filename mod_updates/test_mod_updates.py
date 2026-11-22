@@ -70,11 +70,37 @@ MODS_V2 = {"alpha": {"mod.json": "{}", "alpha.py": "x = 2\n", "README.md": "# al
            "gamma": {"mod.json": "{}", "gamma.py": "z = 1\n"}}
 
 
-class FakeHttp:
-    """What ``mod_updates.http_get`` is, answering from a table."""
+def pkt(text: bytes) -> bytes:
+    """One line of a git ref advertisement: four hex digits (the length, themselves included) and the text."""
+    return b"%04x" % (len(text) + 4) + text
 
-    def __init__(self, sha=SHA1, etag='"e1"', zip_bytes=b"", sha_status=200, fail=None):
-        self.sha, self.etag, self.zip_bytes, self.sha_status, self.fail = sha, etag, zip_bytes, sha_status, fail
+
+def refs_body(refs: "dict[str, str]") -> bytes:
+    """What ``github.com/<repo>.git/info/refs?service=git-upload-pack`` answers: the service line, a separator, HEAD with the server's
+    capabilities after a NUL, every branch, a tag with its peeled entry, a separator."""
+    first = next(iter(refs.values()), SHA1)
+    lines = [pkt(b"# service=git-upload-pack\n"), b"0000", pkt(f"{first} HEAD".encode() + b"\0multi_ack thin-pack agent=git/test\n")]
+    lines += [pkt(f"{sha} refs/heads/{name}\n".encode()) for name, sha in refs.items()]
+    lines += [pkt(f"{first} refs/tags/v1\n".encode()), pkt(f"{first} refs/tags/v1^{{}}\n".encode()), b"0000"]
+    return b"".join(lines)
+
+
+# a real answer for this repository (captured 2026-11-22), so the parser is tested on what GitHub really sends
+REAL_REFS = (b"001e# service=git-upload-pack\n0000015eb5e0f3da410199539f5dd3c35b7741884f2e723c HEAD\x00multi_ack thin-pack side-band "
+             b"side-band-64k ofs-delta shallow deepen-since deepen-not deepen-relative no-progress include-tag multi_ack_detailed "
+             b"allow-tip-sha1-in-want allow-reachable-sha1-in-want no-done symref=HEAD:refs/heads/modloader filter object-format=sha1 "
+             b"agent=git/github-9922ec520325-Linux\n003caf6bb919e74a6e2015a7d135bca0e7dd2f46bf74 refs/heads/dev\n"
+             b"0042b5e0f3da410199539f5dd3c35b7741884f2e723c refs/heads/modloader\n"
+             b"00479163e6395f3e4c12ae79087cec3cac5bf5c3f480 refs/heads/mods_available\n0000")
+
+
+class FakeHttp:
+    """What ``mod_updates.http_get`` is, answering from a table: the branch list (``refs``, default just the mods branch at *sha*)
+    and the zip. It has no answer for the REST API at all: the mods part must never ask for one."""
+
+    def __init__(self, sha=SHA1, zip_bytes=b"", refs_status=200, fail=None, refs=None):
+        self.sha, self.zip_bytes, self.refs_status, self.fail = sha, zip_bytes, refs_status, fail
+        self.refs = refs if refs is not None else {mu.DEFAULT_BRANCH: sha}
         self.calls: list = []
 
     def __call__(self, url, headers=None, timeout=12.0, max_bytes=0):
@@ -82,9 +108,9 @@ class FakeHttp:
         if self.fail:
             raise mu.UpdateError(self.fail)
         if "api.github.com" in url:
-            if self.sha_status == 304:
-                return 304, {}, b""
-            return self.sha_status, {"ETag": self.etag}, self.sha.encode()
+            raise AssertionError("the REST API must not be used here: " + url)
+        if "/info/refs" in url:
+            return self.refs_status, {}, refs_body(self.refs)
         return 200, {}, self.zip_bytes
 
 
@@ -180,46 +206,175 @@ class HttpGetTests(unittest.TestCase):
         with mock.patch.object(urllib.request, "urlopen", return_value=streaming), self.assertRaises(mu.UpdateError):
             mu.http_get("https://example.test/a", max_bytes=100)
 
-    def test_not_modified_is_an_answer(self):
-        error = urllib.error.HTTPError("https://x", 304, "Not Modified", {"ETag": '"x"'}, None)
-        with mock.patch.object(urllib.request, "urlopen", side_effect=error):
-            self.assertEqual(mu.http_get("https://example.test/a")[0], 304)
-
     def test_other_errors_and_no_connection_are_update_errors(self):
-        for failure in (urllib.error.HTTPError("https://x", 404, "no", {}, None), urllib.error.URLError("offline"), OSError("reset"),
-                        TimeoutError("slow")):
-            with mock.patch.object(urllib.request, "urlopen", side_effect=failure), self.assertRaises(mu.UpdateError):
+        for failure in (urllib.error.HTTPError("https://x", 404, "no", {}, None), urllib.error.HTTPError("https://x", 304, "same", {}, None),
+                        urllib.error.URLError("offline"), OSError("reset"), TimeoutError("slow")):
+            with mock.patch.object(urllib.request, "urlopen", side_effect=failure), self.assertRaises(mu.UpdateError) as caught:
                 mu.http_get("https://example.test/a")
+            self.assertNotIsInstance(caught.exception, mu.RateLimited)
+
+    def refused(self, code, headers):
+        error = urllib.error.HTTPError("https://x", code, "refused", headers, None)
+        with mock.patch.object(urllib.request, "urlopen", side_effect=error):
+            return mu.http_get("https://example.test/a")
+
+    def test_a_refusal_because_the_request_limit_is_used_up_says_when_it_is_lifted(self):
+        for code in (403, 429):
+            with self.assertRaises(mu.RateLimited, msg=code) as caught:
+                self.refused(code, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1795360515"})
+            self.assertEqual(caught.exception.reset, 1795360515.0)
+            self.assertIn("request limit", str(caught.exception))
+            self.assertIsInstance(caught.exception, mu.UpdateError)                       # (everything that catches UpdateError still does)
+
+    def test_the_limit_headers_are_found_in_any_case_and_in_a_real_header_object(self):
+        import email.message
+        message = email.message.Message()
+        message["x-ratelimit-remaining"] = "0"
+        message["X-RATELIMIT-RESET"] = "1795360515"
+        with self.assertRaises(mu.RateLimited):
+            self.refused(403, message)
+
+    def test_a_refusal_that_is_not_about_the_limit_is_an_ordinary_one(self):
+        for code, headers in ((403, {}), (403, {"X-RateLimit-Remaining": "7", "X-RateLimit-Reset": "1795360515"}),
+                              (403, {"X-RateLimit-Remaining": "0"}), (403, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "soon"}),
+                              (404, {"X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "1795360515"}), (500, {"Retry-After": "30"})):
+            with self.assertRaises(mu.UpdateError, msg=(code, headers)) as caught:
+                self.refused(code, headers)
+            self.assertNotIsInstance(caught.exception, mu.RateLimited)
+            self.assertIn(str(code), str(caught.exception))
+
+    def test_a_retry_after_means_that_long_from_now(self):
+        self.assertEqual(mu._rate_limit_reset({"Retry-After": " 120 "}, now=lambda: 1000.0), 1120.0)
+        self.assertEqual(mu._rate_limit_reset({"retry-after": "5", "X-RateLimit-Remaining": "0", "X-RateLimit-Reset": "9999"}, now=lambda: 1000.0), 1005.0)
+        self.assertIsNone(mu._rate_limit_reset({"Retry-After": "Wed, 21 Oct 2026 07:28:00 GMT"}, now=lambda: 1000.0))
+        self.assertIsNone(mu._rate_limit_reset({}, now=lambda: 1000.0))
+        self.assertIsNone(mu._rate_limit_reset(None, now=lambda: 1000.0))
+
+    def test_a_429_with_a_retry_after_is_rate_limited(self):
+        with self.assertRaises(mu.RateLimited) as caught:
+            self.refused(429, {"Retry-After": "90"})
+        self.assertGreater(caught.exception.reset, time.time() + 60)
 
 
-class LatestShaTests(unittest.TestCase):
-    def test_it_asks_for_the_branchs_sha_only(self):
-        http = FakeHttp(sha=SHA2, etag='"tag"')
-        self.assertEqual(mu.latest_sha("o/r", "mods_available", None, http), (SHA2, '"tag"'))
-        url, headers = http.calls[0]
-        self.assertEqual(url, "https://api.github.com/repos/o/r/commits/mods_available")
-        self.assertEqual(headers, {"Accept": "application/vnd.github.sha"})
+class ParseRefsTests(unittest.TestCase):
+    def test_what_github_really_sends_gives_the_three_branches(self):
+        self.assertEqual(mu.parse_refs(REAL_REFS), {"dev": "af6bb919e74a6e2015a7d135bca0e7dd2f46bf74",
+                                                    "modloader": "b5e0f3da410199539f5dd3c35b7741884f2e723c",
+                                                    "mods_available": "9163e6395f3e4c12ae79087cec3cac5bf5c3f480"})
 
-    def test_it_sends_the_etag_it_has_and_a_304_means_nothing_changed(self):
-        http = FakeHttp(sha_status=304)
-        self.assertEqual(mu.latest_sha("o/r", "b", '"old"', http), (None, '"old"'))
-        self.assertEqual(http.calls[0][1]["If-None-Match"], '"old"')
+    def test_only_branches_count_not_head_tags_or_peeled_tags(self):
+        refs = mu.parse_refs(refs_body({"main": SHA1, "feature/x-1.2": SHA2}))
+        self.assertEqual(refs, {"main": SHA1, "feature/x-1.2": SHA2})
 
-    def test_an_answer_that_is_not_a_sha_is_refused(self):
-        for body in ("", "<html>rate limited</html>", "abc", "Z" * 40, "a" * 41):
-            http = FakeHttp(sha=body)
+    def test_the_first_line_carries_capabilities_after_a_nul_which_are_not_part_of_the_name(self):
+        body = pkt(b"# service=git-upload-pack\n") + b"0000" + pkt(f"{SHA1} refs/heads/main".encode() + b"\0multi_ack agent=x\n") + b"0000"
+        self.assertEqual(mu.parse_refs(body), {"main": SHA1})
+
+    def test_a_ref_with_an_odd_name_or_hash_is_skipped_not_trusted(self):
+        body = (pkt(f"{SHA1} refs/heads/good\n".encode()) + pkt(f"{'A' * 40} refs/heads/upper\n".encode()) +
+                pkt(f"{'a' * 39} refs/heads/short\n".encode()) + pkt(f"{SHA2} refs/heads/with space\n".encode()) +
+                pkt(f"{SHA2} refs/heads/bad;name\n".encode()) + pkt(f"{SHA2} refs/heads/\n".encode()) + pkt(f"{SHA2}  refs/heads/x\n".encode()))
+        self.assertEqual(mu.parse_refs(body), {"good": SHA1})
+
+    def test_a_branch_listed_twice_keeps_the_last(self):
+        self.assertEqual(mu.parse_refs(pkt(f"{SHA1} refs/heads/m\n".encode()) + pkt(f"{SHA2} refs/heads/m\n".encode())), {"m": SHA2})
+
+    def test_a_line_without_a_trailing_newline_is_fine(self):
+        self.assertEqual(mu.parse_refs(pkt(f"{SHA1} refs/heads/m".encode())), {"m": SHA1})
+
+    def test_an_answer_that_is_not_a_ref_list_is_refused(self):
+        for body in (b"<!DOCTYPE html><html>", b"", b"zzzzrest", b"001e# service", b"0001x", b"0003", b"00" + b"1e" + b"short", b"001E" + b"x" * 26,
+                     pkt(f"{SHA1} refs/heads/m\n".encode()) + b"ffff"):
             with self.assertRaises(mu.UpdateError, msg=body):
-                mu.latest_sha("o/r", "b", None, http)
+                mu.parse_refs(body)
+
+    def test_an_answer_with_no_branch_in_it_is_refused(self):
+        for body in (b"0000", pkt(b"# service=git-upload-pack\n") + b"0000", refs_body({})):
+            with self.assertRaises(mu.UpdateError, msg=body):
+                mu.parse_refs(body)
+
+    def test_a_length_that_stops_short_or_runs_over_is_refused(self):
+        line = pkt(f"{SHA1} refs/heads/mmmmmmmm\n".encode())
+        with self.assertRaises(mu.UpdateError):
+            mu.parse_refs(line[:-2])                                                  # (still reads as a branch if the cut is ignored)
+        with self.assertRaises(mu.UpdateError):
+            mu.parse_refs(line + b"0002")
+
+    def test_a_length_written_in_capitals_is_not_what_git_sends_and_is_refused(self):
+        line = pkt(f"{SHA1} refs/heads/m\n".encode())
+        self.assertNotEqual(line[:4], line[:4].upper())                                  # (the length has a hex letter in it)
+        with self.assertRaises(mu.UpdateError):
+            mu.parse_refs(line[:4].upper() + line[4:])
+
+
+class LatestShasTests(unittest.TestCase):
+    def test_one_request_for_the_git_address_gives_every_branch(self):
+        http = FakeHttp(refs={"mods_available": SHA1, "modloader": SHA2})
+        self.assertEqual(mu.latest_shas("o/r", http), {"mods_available": SHA1, "modloader": SHA2})
+        (url, headers), = http.calls
+        self.assertEqual(url, "https://github.com/o/r.git/info/refs?service=git-upload-pack")
+        self.assertEqual(headers, {})
+
+    def test_the_rest_api_is_not_involved(self):
+        http = FakeHttp()                                                         # (it raises if the REST API is asked)
+        mu.latest_shas("o/r", http)
+
+    def test_the_answer_is_size_capped(self):
+        seen = []
+
+        def http(url, headers=None, timeout=0, max_bytes=0):
+            seen.append(max_bytes)
+            return 200, {}, refs_body({"m": SHA1})
+        mu.latest_shas("o/r", http)
+        self.assertEqual(seen, [mu.REFS_BYTES])
 
     def test_a_status_other_than_ok_is_refused(self):
-        with self.assertRaises(mu.UpdateError):
-            mu.latest_sha("o/r", "b", None, FakeHttp(sha_status=202))
+        for status in (202, 204, 301):
+            with self.assertRaises(mu.UpdateError, msg=status):
+                mu.latest_shas("o/r", FakeHttp(refs_status=status))
 
-    def test_the_etag_header_is_found_in_any_case(self):
+    def test_a_page_that_is_not_a_ref_list_is_refused(self):
         def http(url, headers=None, timeout=0, max_bytes=0):
-            return 200, {"etag": '"low"'}, SHA1.encode()
+            return 200, {}, b"<html>Sign in to GitHub</html>"
+        with self.assertRaises(mu.UpdateError):
+            mu.latest_shas("o/r", http)
 
-        self.assertEqual(mu.latest_sha("o/r", "b", None, http), (SHA1, '"low"'))
+
+class TipsTests(unittest.TestCase):
+    def test_nothing_is_asked_until_a_branch_is_wanted(self):
+        http = FakeHttp()
+        mu.Tips("o/r", http)
+        self.assertEqual(http.calls, [])
+
+    def test_all_the_branches_come_from_one_request(self):
+        http = FakeHttp(refs={"mods_available": SHA1, "modloader": SHA2})
+        tips = mu.Tips("o/r", http)
+        self.assertEqual((tips("mods_available"), tips("modloader"), tips("mods_available")), (SHA1, SHA2, SHA1))
+        self.assertEqual(len(http.calls), 1)
+
+    def test_a_branch_that_is_not_there_is_an_error_that_names_it(self):
+        tips = mu.Tips("o/r", FakeHttp(refs={"main": SHA1}))
+        with self.assertRaises(mu.UpdateError) as caught:
+            tips("modloader")
+        self.assertIn("modloader", str(caught.exception))
+        self.assertEqual(tips("main"), SHA1)                                        # (the other branches still work)
+
+    def test_a_failed_request_is_remembered_not_repeated(self):
+        http = FakeHttp(fail="no connection")
+        tips = mu.Tips("o/r", http)
+        for _ in range(3):
+            with self.assertRaises(mu.UpdateError):
+                tips("mods_available")
+        self.assertEqual(len(http.calls), 1)
+
+    def test_the_kind_of_failure_is_kept(self):
+        def http(url, headers=None, timeout=0, max_bytes=0):
+            raise mu.RateLimited("used up", 5.0)
+        tips = mu.Tips("o/r", http)
+        with self.assertRaises(mu.RateLimited):
+            tips("x")
+        with self.assertRaises(mu.RateLimited):
+            tips("x")
 
 
 class DownloadTests(unittest.TestCase):
@@ -509,8 +664,8 @@ class StateTests(Base):
         self.assertEqual(mu.read_state(self.root), {})
 
     def test_a_state_is_read_back_and_leaves_nothing_else_behind(self):
-        self.assertTrue(mu.write_state(self.root, {"sha": SHA1, "etag": '"e"'}))
-        self.assertEqual(mu.read_state(self.root), {"sha": SHA1, "etag": '"e"'})
+        self.assertTrue(mu.write_state(self.root, {"sha": SHA1, "checked_at": 5.0}))
+        self.assertEqual(mu.read_state(self.root), {"sha": SHA1, "checked_at": 5.0})
         self.assertEqual([p.name for p in self.root.iterdir() if "mod_updates" in p.name], [mu.STATE_FILE])
 
     def test_a_damaged_state_is_none(self):
@@ -536,15 +691,20 @@ class CheckTests(Base):
     def test_a_catalogue_that_matches_the_zip_has_nothing_to_offer_and_the_version_is_remembered(self):
         http = FakeHttp(zip_bytes=make_zip(MODS_V1))
         self.assertIsNone(self.check(http))
-        state = mu.read_state(self.root)
-        self.assertEqual((state["sha"], state["etag"], state["checked_at"]), (SHA1, '"e1"', self.now))
+        self.assertEqual(mu.read_state(self.root), {"sha": SHA1, "checked_at": self.now})
 
     def test_a_newer_version_is_offered_with_what_it_changes(self):
         http = FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2))
         update = self.check(http)
         self.assertEqual((update.updated, update.added, update.removed), (["alpha"], ["gamma"], []))
-        self.assertEqual((update.backend, update.sha, update.etag, update.repo), ("zip", SHA2, '"e1"', "mkden1/star-empire-modloader"))
+        self.assertEqual((update.backend, update.sha, update.repo), ("zip", SHA2, "mkden1/star-empire-modloader"))
         self.assertEqual(sorted(update.mods), ["alpha", "beta", "gamma"])
+
+    def test_a_check_is_two_requests_the_branch_list_and_the_zip_and_never_the_rest_api(self):
+        http = FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2))
+        self.check(http)
+        self.assertEqual([url for url, _ in http.calls], ["https://github.com/mkden1/star-empire-modloader.git/info/refs?service=git-upload-pack",
+                                                          f"https://codeload.github.com/mkden1/star-empire-modloader/zip/{SHA2}"])
 
     def test_nothing_is_recorded_for_an_offer_so_it_is_made_again_at_the_next_start(self):
         self.check(FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2)))
@@ -553,7 +713,7 @@ class CheckTests(Base):
         self.assertIsNotNone(later)
 
     def test_a_check_just_made_is_not_made_again_for_a_while(self):
-        mu.write_state(self.root, {"sha": SHA1, "etag": '"e1"', "checked_at": self.now - 60})
+        mu.write_state(self.root, {"sha": SHA1, "checked_at": self.now - 60})
         http = FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2))
         self.assertIsNone(self.check(http))
         self.assertEqual(http.calls, [])
@@ -561,35 +721,38 @@ class CheckTests(Base):
         self.assertIsNotNone(self.check(http))
 
     def test_a_forced_check_ignores_the_wait(self):
-        mu.write_state(self.root, {"sha": SHA1, "etag": '"e1"', "checked_at": self.now - 1})
+        mu.write_state(self.root, {"sha": SHA1, "checked_at": self.now - 1})
         http = FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2))
         self.assertIsNotNone(self.check(http, force=True))
 
-    def test_the_known_version_is_asked_about_with_its_etag_and_not_downloaded_again(self):
-        mu.write_state(self.root, {"sha": SHA1, "etag": '"e1"', "checked_at": 0})
-        http = FakeHttp(sha_status=304)
+    def test_a_branch_that_has_not_moved_costs_one_small_request_and_no_download(self):
+        mu.write_state(self.root, {"sha": SHA1, "checked_at": 0})
+        http = FakeHttp(sha=SHA1)
         self.assertIsNone(self.check(http))
         self.assertEqual(len(http.calls), 1)
-        self.assertEqual(http.calls[0][1]["If-None-Match"], '"e1"')
-        self.assertEqual(mu.read_state(self.root)["checked_at"], self.now)
+        self.assertIn("/info/refs", http.calls[0][0])
+        self.assertEqual(mu.read_state(self.root), {"sha": SHA1, "checked_at": self.now})
 
-    def test_the_same_sha_with_a_new_etag_is_not_downloaded(self):
-        mu.write_state(self.root, {"sha": SHA1, "etag": '"old"', "checked_at": 0})
-        http = FakeHttp(sha=SHA1, etag='"new"')
-        self.assertIsNone(self.check(http))
-        self.assertEqual(len(http.calls), 1)
-        self.assertEqual(mu.read_state(self.root)["etag"], '"new"')
+    def test_a_branch_that_has_moved_is_downloaded_even_when_another_branch_moves_too(self):
+        mu.write_state(self.root, {"sha": SHA1, "checked_at": 0})
+        http = FakeHttp(refs={mu.DEFAULT_BRANCH: SHA2, "dev": SHA1}, zip_bytes=make_zip(MODS_V2, SHA2))
+        self.assertEqual(self.check(http).sha, SHA2)
 
-    def test_an_etag_is_only_sent_with_a_version_to_go_with_it(self):
-        mu.write_state(self.root, {"etag": '"orphan"', "checked_at": 0})
-        http = FakeHttp(zip_bytes=make_zip(MODS_V1))
-        self.check(http)
-        self.assertNotIn("If-None-Match", http.calls[0][1])
+    def test_the_branch_list_of_a_repository_without_the_mods_branch_is_an_error(self):
+        with self.assertRaises(mu.UpdateError):
+            self.check(FakeHttp(refs={"main": SHA1}))
+        self.assertEqual(mu.read_state(self.root), {})
+
+    def test_what_an_earlier_version_kept_about_etags_is_dropped(self):
+        mu.write_state(self.root, {"sha": SHA1, "etag": '"old"', "loader_etag": '"older"', "checked_at": 0})
+        self.check(FakeHttp(sha=SHA1))
+        self.assertEqual(mu.read_state(self.root), {"sha": SHA1, "checked_at": self.now})
 
     def test_no_network_is_an_error_and_records_nothing(self):
         with self.assertRaises(mu.UpdateError):
             self.check(FakeHttp(fail="no connection"))
         self.assertEqual(mu.read_state(self.root), {})
+        self.assertFalse((self.root / mu.STATE_FILE).exists())                           # (not even an empty file)
 
     def test_a_bad_zip_is_an_error(self):
         with self.assertRaises(mu.UpdateError):
@@ -623,10 +786,11 @@ class CheckTests(Base):
 
     def test_a_fork_is_followed_when_named(self):
         with mock.patch.dict(os.environ, {mu.ENV_REPO: "someone/fork@testing"}):
-            http = FakeHttp(sha=SHA2, zip_bytes=make_zip(MODS_V2, SHA2))
-            self.check(http)
-        self.assertIn("someone/fork/commits/testing", http.calls[0][0])
-        self.assertIn("someone/fork/zip/", http.calls[1][0])
+            http = FakeHttp(refs={"testing": SHA2, mu.DEFAULT_BRANCH: SHA1}, zip_bytes=make_zip(MODS_V2, SHA2))
+            update = self.check(http)
+        self.assertEqual(http.calls[0][0], "https://github.com/someone/fork.git/info/refs?service=git-upload-pack")
+        self.assertIn("someone/fork/zip/" + SHA2, http.calls[1][0])                    # (the named branch's commit, not the default branch's)
+        self.assertEqual((update.sha, update.repo), (SHA2, "someone/fork"))
 
 
 class AvailableTests(Base):
@@ -645,7 +809,7 @@ class ApplyTests(Base):
     def setUp(self):
         super().setUp()
         self.catalogue_has(MODS_V1)
-        self.update = mu.Update(backend="zip", sha=SHA2, updated=["alpha"], added=["gamma"], etag='"e2"', repo="o/r",
+        self.update = mu.Update(backend="zip", sha=SHA2, updated=["alpha"], added=["gamma"], repo="o/r",
                                 mods=mu.read_mods(make_zip(MODS_V2, SHA2)))
 
     def test_a_used_mod_among_the_updated_needs_a_restart(self):
@@ -656,7 +820,7 @@ class ApplyTests(Base):
         self.assertIn("Restarting", message)
         self.assertEqual((self.catalogue / "alpha" / "alpha.py").read_text(encoding="utf-8"), "x = 2\n")
         self.assertTrue((self.catalogue / "gamma").is_dir())
-        self.assertEqual(mu.read_state(self.root), {"sha": SHA2, "etag": '"e2"', "checked_at": 5.0})
+        self.assertEqual(mu.read_state(self.root), {"sha": SHA2, "checked_at": 5.0})
 
     def test_mods_that_are_not_used_need_no_restart(self):
         self.install("beta")
@@ -744,7 +908,7 @@ class BarBase(Base):
             self.addCleanup(patcher.stop)
 
     def update(self, **kwargs):
-        defaults = dict(backend="zip", sha=SHA2, updated=["alpha"], added=["gamma"], etag='"e"', repo="o/r", mods=self.zip_mods())
+        defaults = dict(backend="zip", sha=SHA2, updated=["alpha"], added=["gamma"], repo="o/r", mods=self.zip_mods())
         defaults.update(kwargs)
         return mu.Update(**defaults)
 
@@ -858,11 +1022,23 @@ class BarTests(BarBase):
             self.assertTrue(pygame.Rect(0, 0, width, 720).contains(rect) or width < 224, width)
             self.assertGreaterEqual(rect.w, 200)
 
-    def test_long_text_is_cut_to_fit(self):
+    def test_a_long_list_shows_fewer_names_with_a_count_rather_than_being_cut_off(self):
         self.offered(self.update(updated=[f"a_rather_long_mod_name_{i}" for i in range(4)]))
-        widest = max(self.fonts[2].size(line)[0] for line in self.text if line.startswith("Mod updates available"))
-        self.assertLessEqual(widest, mu.bar_rect(*WINDOW).w)
-        self.assertTrue(any(line.endswith("...") for line in self.text))
+        (line,) = [line for line in self.text if line.startswith("Mod updates available")]
+        self.assertLessEqual(self.fonts[2].size(line)[0], mu.bar_rect(*WINDOW).w)
+        self.assertFalse(line.endswith("..."), line)
+        self.assertRegex(line, r"updated: a_rather_long_mod_name_0.* \+\d more")                # (the counted rest, not a cut name)
+
+    def test_names_that_cannot_fit_even_one_at_a_time_give_way_to_counts(self):
+        self.offered(self.update(updated=[f"{'x' * 60}{i}" for i in range(5)], added=[f"{'y' * 60}{i}" for i in range(4)]))
+        self.assertIn("Mod updates available:  updated: 5   new: 4", self.text)
+
+    def test_text_that_cannot_fit_even_as_counts_is_cut_to_fit(self):
+        self.screen = pygame.Surface((300, 400))                                       # (a very narrow window)
+        self.offered(self.update(updated=["x" * 400]))
+        (line,) = [line for line in self.text if line.startswith("Mod")]
+        self.assertLessEqual(self.fonts[2].size(line)[0], mu.bar_rect(300, 400).w)
+        self.assertTrue(line.endswith("..."), line)                                    # (the bar's last resort: cut, with dots)
 
 
 class ClickTests(BarBase):

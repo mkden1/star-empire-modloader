@@ -37,12 +37,34 @@ from pathlib import Path
 
 import pygame
 
-import mod_digest
-import relaunch
+try:                                 # (the core mod may be older than this one: it was copied without core's newer files; install() then does nothing)
+    import mod_digest
+except ImportError:
+    mod_digest = None
+try:
+    import relaunch
+except ImportError:
+    relaunch = None
 
 logger = logging.getLogger(__name__)
 
 ENV_OFF = "STAR_EMPIRE_NO_CHANGE_MODS"
+
+# what this mod calls in core's helpers, by module: an older core that lacks one of them is reported, it never crashes the game's start-up
+CORE_NEEDS = {"mod_digest": ("digest", "digests", "diff"), "relaunch": ("restart_after_exit",)}
+
+
+def core_problem() -> "str | None":
+    """Why this mod cannot work with the core mod that is installed (None when it can): the core folder is older than this mod."""
+    lacking: "list[str]" = []
+    for name, module in (("mod_digest", mod_digest), ("relaunch", relaunch)):
+        if module is None:
+            lacking.append(f"{name}.py")
+        else:
+            lacking.extend(f"{name}.{need}" for need in CORE_NEEDS[name] if not hasattr(module, need))
+    if not lacking:
+        return None
+    return "core is older than this mod (it lacks " + ", ".join(lacking) + "): update the core folder"
 BUTTON_W, BUTTON_H = 230, 30
 CARD_MAX_H = 510                 # the login card's height on the LOGIN tab (the REGISTER tab's is 20 less), centred in the window
 GAP = 14
@@ -123,8 +145,8 @@ def fingerprint(mods_dir: "Path | None" = None) -> tuple:
 
 # ── what changed since the last start ────────────────────────────────────────
 
-digest = mod_digest.digest                       # (shared with mod_updates: core/mod_digest.py)
-diff = mod_digest.diff
+digest = getattr(mod_digest, "digest", None)     # (shared with mod_updates: core/mod_digest.py)
+diff = getattr(mod_digest, "diff", None)
 
 
 def digests(mods_dir: "Path | None" = None) -> "dict[str, str]":
@@ -371,6 +393,11 @@ def install(login_cls) -> "list[str]":
     if login_cls.__dict__.get("_change_mods_installed"):
         return []
     import modloader
+    problem = core_problem()
+    if problem:                                  # (the Mods page shows it in red; the game carries on without this mod's feature)
+        logger.warning("change_mods: switched off: %s", problem)
+        getattr(modloader, "ATTACH_FAILURES", {})["change_mods"] = problem
+        return [problem]
     problems = modloader.install_methods(login_cls, None, None, (), before={"handle_event": before_event},
                                          after={"draw": after_draw})
     login_cls._change_mods_installed = True

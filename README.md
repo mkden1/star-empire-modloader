@@ -235,7 +235,7 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`gc_watch`](gc_watch/README.md) | Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py). | 4 in Client |  |
 | [`inventory_filter`](inventory_filter/README.md) | FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py). | 8 in Client, render_mixin | render_alias |
 | [`log_out`](log_out/README.md) | SWITCH USER: a button below the in-game ESC menu that lists your saved characters; pick one and the game restarts logged in as them (log_out.py). | 2 in Client | core |
-| [`mod_updates`](mod_updates/README.md) | MOD UPDATES: checks GitHub for newer versions of the mods and shows an ask-first bar on the login screen; UPDATE MODS refreshes the catalogue and restarts to use them (mod_updates.py). | 1 in Client | core |
+| [`mod_updates`](mod_updates/README.md) | MOD UPDATES: checks GitHub for newer versions of the mods and of the launcher (the modloader folder) and shows an ask-first bar on the login screen; the update button refreshes them and restarts to use them (mod_updates.py). | 1 in Client | core |
 | [`music_prefetch`](music_prefetch/README.md) | Reads the next music track ahead and times every track load (music_prefetch.py). | 1 in Client |  |
 | [`net_drain`](net_drain/README.md) | Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window. | 4 in Client, protocol |  |
 | [`options_saver`](options_saver/README.md) | Keeps options.txt saves off the render thread (options_saver.py). | 3 in Client |  |

@@ -1,5 +1,5 @@
 {
-  "description": "MOD UPDATES: checks GitHub for newer versions of the mods and shows an ask-first bar on the login screen; UPDATE MODS refreshes the catalogue and restarts to use them (mod_updates.py).",
+  "description": "MOD UPDATES: checks GitHub for newer versions of the mods and of the launcher (the modloader folder) and shows an ask-first bar on the login screen; the update button refreshes them and restarts to use them (mod_updates.py).",
   "requires": [
     "core"
   ],

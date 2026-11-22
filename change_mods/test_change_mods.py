@@ -4,7 +4,10 @@ picker does, and the hooks on the game's real LoginScreen."""
 from __future__ import annotations
 import modloader
 
+import importlib.abc
+import importlib.util
 import os
+import sys
 import tempfile
 import time
 import unittest
@@ -724,6 +727,94 @@ class GamePatchTests(unittest.TestCase):
         source = modloader.game_source("Client.py")
         self.assertIn("self._login.handle_event(ev, ww, wh)", source)
         self.assertIn("self._login.draw(screen, (font_big, font_med, font_sm))", source)
+
+
+# ── a core mod that is older than this one ───────────────────────────────────
+
+class BlockImports(importlib.abc.MetaPathFinder):
+    """Makes ``import <name>`` fail, as it does for a core folder that lacks the file."""
+
+    def __init__(self, *names):
+        self.names = set(names)
+
+    def find_spec(self, fullname, path=None, target=None):
+        if fullname in self.names:
+            raise ModuleNotFoundError(f"No module named {fullname!r}", name=fullname)
+        return None
+
+
+def load_without(path: Path, name: str, *blocked: str):
+    """Import the module at *path* afresh, with the *blocked* modules (and any copy already imported) not importable."""
+    finder = BlockImports(*blocked)
+    saved = {n: sys.modules.pop(n) for n in blocked if n in sys.modules}
+    sys.meta_path.insert(0, finder)
+    try:
+        spec = importlib.util.spec_from_file_location(name, path)
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[name] = module
+        spec.loader.exec_module(module)
+        return module
+    finally:
+        sys.meta_path.remove(finder)
+        sys.modules.pop(name, None)
+        sys.modules.update(saved)
+
+
+class FakeLoginClass:
+    pass
+
+
+class OlderCoreTests(unittest.TestCase):
+    PATH = Path(cm.__file__)
+
+    def setUp(self):
+        patcher = mock.patch.dict(modloader.ATTACH_FAILURES)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_with_the_helpers_present_there_is_no_problem(self):
+        self.assertIsNone(cm.core_problem())
+
+    def test_the_module_still_imports_without_the_core_files_and_says_what_is_missing(self):
+        module = load_without(self.PATH, "change_mods_nocore", "mod_digest", "relaunch")
+        self.assertIsNone(module.mod_digest)
+        self.assertIsNone(module.relaunch)
+        self.assertIsNone(module.digest)
+        problem = module.core_problem()
+        self.assertIn("mod_digest.py", problem)
+        self.assertIn("relaunch.py", problem)
+
+    def test_each_file_is_checked_on_its_own(self):
+        only_digest = load_without(self.PATH, "change_mods_nodigest", "mod_digest")
+        self.assertIn("mod_digest.py", only_digest.core_problem())
+        self.assertNotIn("relaunch", only_digest.core_problem())
+        only_relaunch = load_without(self.PATH, "change_mods_norelaunch", "relaunch")
+        self.assertIn("relaunch.py", only_relaunch.core_problem())
+        self.assertNotIn("mod_digest", only_relaunch.core_problem())
+
+    def test_a_helper_that_lacks_a_function_this_mod_calls_is_a_problem_too(self):
+        with mock.patch.object(cm, "mod_digest", SimpleNamespace(digest=lambda *a: "")):
+            problem = cm.core_problem()
+        self.assertIn("mod_digest.digests", problem)
+        self.assertIn("mod_digest.diff", problem)
+        self.assertNotIn("mod_digest.digest,", problem)
+        with mock.patch.object(cm, "relaunch", SimpleNamespace()):
+            self.assertIn("relaunch.restart_after_exit", cm.core_problem())
+
+    def test_installing_with_an_older_core_hooks_nothing_and_reports_on_the_mods_page(self):
+        module = load_without(self.PATH, "change_mods_nocore2", "mod_digest", "relaunch")
+        with mock.patch.object(modloader, "install_methods") as install_methods:
+            problems = module.install(FakeLoginClass)
+        install_methods.assert_not_called()
+        self.assertEqual(len(problems), 1)
+        self.assertEqual(modloader.ATTACH_FAILURES["change_mods"], problems[0])
+        self.assertFalse(FakeLoginClass.__dict__.get("_change_mods_installed"))
+
+    def test_installing_with_a_current_core_still_hooks_the_login_screen(self):
+        with mock.patch.object(modloader, "install_methods", return_value=[]) as install_methods:
+            self.assertEqual(cm.install(type("Fresh", (), {})), [])
+        install_methods.assert_called_once()
+        self.assertNotIn("change_mods", modloader.ATTACH_FAILURES)
 
 
 if __name__ == "__main__":

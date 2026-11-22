@@ -24,7 +24,10 @@ import weakref
 
 import pygame
 
-import relaunch
+try:
+    import relaunch
+except ImportError:                  # the core mod is older than this one (it was copied without core's newer files): install() then does nothing
+    relaunch = None
 
 logger = logging.getLogger(__name__)
 
@@ -332,10 +335,30 @@ def filter_events(win, events):
 
 # ── installing ───────────────────────────────────────────────────────────────
 
+def core_problem() -> "str | None":
+    """Why this mod cannot work with the core mod that is installed (None when it can): the core folder is older than this mod."""
+    if relaunch is None:
+        return "core is older than this mod (it lacks relaunch.py): update the core folder"
+    if not hasattr(relaunch, "restart_after_exit"):
+        return "core is older than this mod (it lacks relaunch.restart_after_exit): update the core folder"
+    return None
+
+
+def _refuse(problem: str) -> "list[str]":
+    """Leave the game alone: say why in the log and on the Mods page (red), and hook nothing."""
+    import modloader
+    logger.warning("log_out: switched off: %s", problem)
+    getattr(modloader, "ATTACH_FAILURES", {})["log_out"] = problem
+    return [problem]
+
+
 def install(render_cls) -> "list[str]":
     """Hook the game's ESC menu drawing. Idempotent; never raises (see ``modloader.install_methods``)."""
     if render_cls.__dict__.get("_log_out_installed"):
         return []
+    problem = core_problem()
+    if problem:
+        return _refuse(problem)
     import modloader
     problems = modloader.install_methods(render_cls, None, None, (), after={"_draw_esc_menu": after_draw_esc_menu})
     render_cls._log_out_installed = True
@@ -347,6 +370,9 @@ def install_login(login_cls) -> "list[str]":
     for (``draw``, the first time). Idempotent; never raises."""
     if login_cls.__dict__.get("_log_out_installed"):
         return []
+    problem = core_problem()
+    if problem:
+        return _refuse(problem)
     import modloader
     problems = modloader.install_methods(login_cls, None, None, (), after={"load_options": remember_login_screen,
                                                                            "draw": auto_login_on_draw})
