@@ -62,6 +62,10 @@ ui_layouts.json.*.tmp
 quick_bars.json
 quick_bars.json.*.tmp
 
+# What mods/ held at the previous start, so the login screen can say which mods changed (change_mods.py).
+mods_seen.json
+mods_seen.json.*.tmp
+
 # What the mod loader wrote at the last start-up (which mods were switched off and why), and the compiled patched code it
 # caches when custom_build/ does not exist.
 mods_report.txt

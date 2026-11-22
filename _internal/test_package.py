@@ -286,7 +286,7 @@ class BuildPackageTests(unittest.TestCase):
         """A saved login, per-machine settings, logs and scan data cannot ride along into a package, wherever they are."""
         keep = build_package.keep_mod_file
         for name in ("options.txt", "capture_settings.json", "galaxy_map_window.json", "ship_layouts_window.json",
-                     "range_rings.json", "ui_layouts.json", "quick_bars.json", "mods_report.txt", "star_empire_client.log",
+                     "range_rings.json", "ui_layouts.json", "quick_bars.json", "mods_seen.json", "mods_report.txt", "star_empire_client.log",
                      "crash.log",
                      "settings.json.old",
                      "scan_data"):

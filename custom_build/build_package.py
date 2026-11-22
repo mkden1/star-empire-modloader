@@ -61,7 +61,7 @@ LIB_SKIP = {"__pycache__", "tests"}
 # (options.txt), per-machine settings, logs, scan data - so none of it can ride along by accident
 MOD_SKIP_NAMES = {"conftest.py", "expected_failures.txt", "__pycache__",
                   "options.txt", "capture_settings.json", "galaxy_map_window.json", "ship_layouts_window.json",
-                  "range_rings.json", "ui_layouts.json", "quick_bars.json", "mods_report.txt", "version.txt", "scan_data"}
+                  "range_rings.json", "ui_layouts.json", "quick_bars.json", "mods_seen.json", "mods_report.txt", "version.txt", "scan_data"}
 MOD_SKIP_SUFFIXES = (".pyc", ".log", ".old")
 
 # Files from _internal/ that belong to the runtime, not to a mod: they go into modloader/ next to the loader and the
