@@ -26,7 +26,6 @@ Every function the game calls here is total: an error switches the button off fo
 
 from __future__ import annotations
 
-import hashlib
 import json
 import logging
 import os
@@ -38,6 +37,7 @@ from pathlib import Path
 
 import pygame
 
+import mod_digest
 import relaunch
 
 logger = logging.getLogger(__name__)
@@ -48,6 +48,7 @@ CARD_MAX_H = 510                 # the login card's height on the LOGIN tab (the
 GAP = 14
 STATUS_S = 6.0                   # how long a note stays under the button
 SEEN_FILE = "mods_seen.json"     # next to the client: what mods/ held at the previous start
+SEEN_VERSION = 2                 # 2: the hashes ignore line endings (1 did not: a snapshot of that kind is a first start)
 NOTE_S = 25.0                    # how long the list of changed mods stays up
 NOTE_NAMES = 6                   # names per line before "+N more"
 
@@ -122,35 +123,13 @@ def fingerprint(mods_dir: "Path | None" = None) -> tuple:
 
 # ── what changed since the last start ────────────────────────────────────────
 
-def digest(folder: Path) -> str:
-    """A hash of everything a mod folder holds that matters (its code and data: not the README, screenshots or caches), so a mod
-    that was updated differs and a mod that was only copied again does not."""
-    hasher = hashlib.sha1()
-    for base, dirs, names in os.walk(folder):
-        dirs[:] = sorted(d for d in dirs if d not in _SKIP_DIRS)
-        for name in sorted(names):
-            if name in _SKIP_FILES or name.endswith((".pyc", ".pyo")):
-                continue
-            path = Path(base) / name
-            try:
-                data = path.read_bytes()
-            except OSError:
-                continue
-            hasher.update(path.relative_to(folder).as_posix().encode("utf-8", "replace"))
-            hasher.update(b"\0")
-            hasher.update(data)
-            hasher.update(b"\0")
-    return hasher.hexdigest()
+digest = mod_digest.digest                       # (shared with mod_updates: core/mod_digest.py)
+diff = mod_digest.diff
 
 
 def digests(mods_dir: "Path | None" = None) -> "dict[str, str]":
     """Every mod in ``mods/`` with its hash (dot-folders and loose files are not mods)."""
-    mods_dir = Path(mods_dir) if mods_dir is not None else _root() / "mods"
-    try:
-        folders = sorted(p for p in mods_dir.iterdir() if p.is_dir() and not p.name.startswith("."))
-    except OSError:
-        return {}
-    return {folder.name: digest(folder) for folder in folders}
+    return mod_digest.digests(Path(mods_dir) if mods_dir is not None else _root() / "mods")
 
 
 def read_seen(root: "Path | None" = None) -> "dict[str, str] | None":
@@ -160,7 +139,9 @@ def read_seen(root: "Path | None" = None) -> "dict[str, str] | None":
         data = json.loads(path.read_text(encoding="utf-8"))
     except (OSError, ValueError):
         return None
-    mods = data.get("mods") if isinstance(data, dict) else None
+    if not isinstance(data, dict) or data.get("version") != SEEN_VERSION:             # (hashes of an older kind are not comparable)
+        return None
+    mods = data.get("mods")
     if not isinstance(mods, dict) or not all(isinstance(k, str) and isinstance(v, str) for k, v in mods.items()):
         return None
     return dict(mods)
@@ -171,7 +152,7 @@ def write_seen(snapshot: "dict[str, str]", root: "Path | None" = None) -> bool:
     path = (Path(root) if root is not None else _root()) / SEEN_FILE
     temporary = path.with_name(path.name + f".{os.getpid()}.tmp")
     try:
-        temporary.write_text(json.dumps({"version": 1, "mods": snapshot}, indent=1, sort_keys=True), encoding="utf-8")
+        temporary.write_text(json.dumps({"version": SEEN_VERSION, "mods": snapshot}, indent=1, sort_keys=True), encoding="utf-8")
         os.replace(temporary, path)
         return True
     except OSError:
@@ -180,14 +161,6 @@ def write_seen(snapshot: "dict[str, str]", root: "Path | None" = None) -> bool:
         except OSError:
             pass
         return False
-
-
-def diff(old: "dict[str, str]", new: "dict[str, str]") -> "tuple[list[str], list[str], list[str]]":
-    """``(updated, added, removed)`` mod names, each sorted."""
-    updated = sorted(name for name in new if name in old and new[name] != old[name])
-    added = sorted(name for name in new if name not in old)
-    removed = sorted(name for name in old if name not in new)
-    return updated, added, removed
 
 
 def note_lines(updated, added, removed) -> "list[str]":
@@ -354,11 +327,12 @@ def _draw_note(win, screen, fonts, state: dict) -> None:
     width, height = screen.get_size()
     font = fonts[2]
     line_h = font.render("Ag", True, (0, 0, 0)).get_height() + 3
-    if (height - CARD_MAX_H) // 2 < 12 + line_h * len(holder["lines"]):
+    top = int(getattr(win, "_top_banner_h", 0) or 0)        # another mod's banner (mod_updates' prompt) sits above: go below it
+    if (height - CARD_MAX_H) // 2 < top + 12 + line_h * len(holder["lines"]):
         return                                              # the card is in the way
     for index, line in enumerate(holder["lines"]):
         text = font.render(line, True, (0, 180, 255) if index == 0 else (150, 190, 240))
-        screen.blit(text, text.get_rect(midtop=(width // 2, 10 + index * line_h)))
+        screen.blit(text, text.get_rect(midtop=(width // 2, 10 + top + index * line_h)))
 
 
 def handle_click(win, event) -> bool:

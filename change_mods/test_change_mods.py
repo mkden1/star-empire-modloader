@@ -445,6 +445,14 @@ class SeenFileTests(Base):
         self.assertEqual(cm.read_seen(self.root), {"alpha": "abc"})
         self.assertEqual([p.name for p in self.root.iterdir() if "mods_seen" in p.name], [cm.SEEN_FILE])
 
+    def test_a_snapshot_of_the_older_kind_is_a_first_start(self):
+        (self.root / cm.SEEN_FILE).write_text('{"version": 1, "mods": {"alpha": "abc"}}', encoding="utf-8")
+        self.assertIsNone(cm.read_seen(self.root))
+        (self.root / cm.SEEN_FILE).write_text('{"mods": {"alpha": "abc"}}', encoding="utf-8")
+        self.assertIsNone(cm.read_seen(self.root))
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))                 # (so nothing is reported, and the new kind is kept)
+        self.assertEqual(cm.read_seen(self.root), cm.digests(self.root / "mods"))
+
     def test_a_newer_snapshot_replaces_the_older(self):
         cm.write_seen({"alpha": "1"}, self.root)
         cm.write_seen({"alpha": "2", "beta": "3"}, self.root)

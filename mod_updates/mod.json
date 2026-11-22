@@ -1,0 +1,8 @@
+{
+  "description": "MOD UPDATES: checks GitHub for newer versions of the mods and shows an ask-first bar on the login screen; UPDATE MODS refreshes the catalogue and restarts to use them (mod_updates.py).",
+  "requires": [
+    "core"
+  ],
+  "category": "features",
+  "recommended": true
+}

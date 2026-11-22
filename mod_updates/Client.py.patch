@@ -1,0 +1,6 @@
+# mod_updates: hooks the login screen's draw and click (one hunk; every hunk only adds lines)
+
+@@ import mod_updates # MOD: the login screen's mod update bar @@
+ from login import LoginScreen, MUSIC_LOGIN
++import mod_updates  # MOD: asks GitHub for newer mods and shows an ask-first bar on the login screen (mod_updates.py)
++mod_updates.install(LoginScreen)   # MOD: hooks LoginScreen.draw and LoginScreen.handle_event by name
