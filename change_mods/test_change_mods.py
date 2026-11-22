@@ -65,15 +65,34 @@ def click(pos, button=1, kind=pygame.MOUSEBUTTONDOWN):
     return pygame.event.Event(kind, pos=pos, button=button)
 
 
+def quiet_scan(win, root):
+    """What the first frame starts, without the thread: the comparison with the last start has nothing to say."""
+    cm._state(win)["scan"] = {"done": True, "lines": []}
+
+
+def finish_scans():
+    """Let every comparison thread end before a test's folder goes."""
+    import threading
+    for thread in threading.enumerate():
+        if thread.name == "change_mods-scan":
+            thread.join(10)
+
+
 class Base(unittest.TestCase):
+    real_scan = False                      # True: the first frame really starts the comparison thread
+
     def setUp(self):
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
         self.tmp = Path(self._tmp.name)
         cm.reset_for_tests()
         self.addCleanup(cm.reset_for_tests)
+        self.addCleanup(finish_scans)
         self.root = make_root(self.tmp)
-        for patcher in (mock.patch.object(cm, "_root", lambda: self.root), mock.patch.object(cm, "mods_in_effect", lambda: None)):
+        patches = [mock.patch.object(cm, "_root", lambda: self.root), mock.patch.object(cm, "mods_in_effect", lambda: None)]
+        if not self.real_scan:
+            patches.append(mock.patch.object(cm, "_begin_scan", quiet_scan))
+        for patcher in patches:
             patcher.start()
             self.addCleanup(patcher.stop)
         self.win = SimpleNamespace()
@@ -371,6 +390,238 @@ class OutcomeTests(Base):
         made.assert_called_once()
 
 
+class DigestTests(Base):
+    def mod(self, name="alpha"):
+        return self.root / "mods" / name
+
+    def test_a_mod_has_the_same_digest_until_its_files_change(self):
+        before = cm.digest(self.mod())
+        self.assertEqual(before, cm.digest(self.mod()))
+        (self.mod() / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        changed = cm.digest(self.mod())
+        self.assertNotEqual(before, changed)
+        (self.mod() / "new.patch").write_text("@@ a @@\n", encoding="utf-8")
+        self.assertNotEqual(changed, cm.digest(self.mod()))
+
+    def test_a_file_that_is_renamed_or_moved_changes_it(self):
+        before = cm.digest(self.mod())
+        (self.mod() / "thing.py").rename(self.mod() / "other.py")
+        self.assertNotEqual(before, cm.digest(self.mod()))
+
+    def test_a_mod_that_was_only_copied_again_has_the_same_digest(self):
+        before = cm.digest(self.mod())
+        later = time.time() + 500
+        for path in self.mod().iterdir():
+            os.utime(path, (later, later))                                      # (new times, same content)
+        self.assertEqual(cm.digest(self.mod()), before)
+
+    def test_what_does_not_matter_does_not_count(self):
+        before = cm.digest(self.mod())
+        (self.mod() / "README.md").write_text("# a\n", encoding="utf-8")
+        (self.mod() / "__pycache__").mkdir()
+        (self.mod() / "__pycache__" / "thing.cpython-314.pyc").write_bytes(b"x")
+        (self.mod() / "thing.pyc").write_bytes(b"x")
+        (self.mod() / "screenshots").mkdir()
+        (self.mod() / "screenshots" / "a.png").write_bytes(b"x")
+        self.assertEqual(cm.digest(self.mod()), before)
+
+    def test_digests_lists_every_mod_and_nothing_else(self):
+        (self.root / "mods" / "beta").mkdir()
+        (self.root / "mods" / "beta" / "mod.json").write_text("{}", encoding="utf-8")
+        (self.root / "mods" / ".replaced").mkdir()
+        (self.root / "mods" / "stray.txt").write_text("not a mod", encoding="utf-8")
+        got = cm.digests(self.root / "mods")
+        self.assertEqual(sorted(got), ["alpha", "beta"])
+        self.assertNotEqual(got["alpha"], got["beta"])
+        self.assertEqual(cm.digests(self.tmp / "nowhere"), {})
+
+
+class SeenFileTests(Base):
+    def test_there_is_no_snapshot_before_the_first_start(self):
+        self.assertIsNone(cm.read_seen(self.root))
+
+    def test_a_snapshot_is_read_back_and_leaves_nothing_else_behind(self):
+        self.assertTrue(cm.write_seen({"alpha": "abc"}, self.root))
+        self.assertEqual(cm.read_seen(self.root), {"alpha": "abc"})
+        self.assertEqual([p.name for p in self.root.iterdir() if "mods_seen" in p.name], [cm.SEEN_FILE])
+
+    def test_a_newer_snapshot_replaces_the_older(self):
+        cm.write_seen({"alpha": "1"}, self.root)
+        cm.write_seen({"alpha": "2", "beta": "3"}, self.root)
+        self.assertEqual(cm.read_seen(self.root), {"alpha": "2", "beta": "3"})
+
+    def test_a_damaged_snapshot_is_no_snapshot(self):
+        path = self.root / cm.SEEN_FILE
+        for text in ("not json", "[]", '{"mods": 5}', '{"mods": {"a": 1}}', '{"mods": {"a": "x"}'):
+            path.write_text(text, encoding="utf-8")
+            self.assertIsNone(cm.read_seen(self.root), text)
+
+    def test_a_snapshot_that_cannot_be_written_says_so(self):
+        self.assertFalse(cm.write_seen({"a": "b"}, self.tmp / "no" / "such" / "folder"))
+
+
+class DiffTests(unittest.TestCase):
+    def test_updated_new_and_removed_are_told_apart_and_sorted(self):
+        old = {"a": "1", "b": "1", "c": "1", "d": "1"}
+        new = {"a": "1", "b": "2", "d": "9", "e": "1", "f": "1"}
+        self.assertEqual(cm.diff(old, new), (["b", "d"], ["e", "f"], ["c"]))
+
+    def test_nothing_changed_is_nothing(self):
+        self.assertEqual(cm.diff({"a": "1"}, {"a": "1"}), ([], [], []))
+        self.assertEqual(cm.diff({}, {}), ([], [], []))
+
+    def test_the_note_has_a_header_and_a_line_per_kind(self):
+        self.assertEqual(cm.note_lines(["quick_bars", "ui_layouts"], ["log_out"], []),
+                         ["Mods changed since your last start:", "  updated: quick_bars, ui_layouts", "  new: log_out"])
+        self.assertEqual(cm.note_lines([], [], ["old_mod"]), ["Mods changed since your last start:", "  removed: old_mod"])
+
+    def test_nothing_changed_is_no_note(self):
+        self.assertEqual(cm.note_lines([], [], []), [])
+
+    def test_a_long_list_is_cut_with_a_count(self):
+        names = [f"mod{i}" for i in range(9)]
+        lines = cm.note_lines(names, [], [])
+        self.assertEqual(lines[1], "  updated: mod0, mod1, mod2, mod3, mod4, mod5 +3 more")
+
+
+class ScanTests(Base):
+    def test_the_first_start_says_nothing_and_keeps_a_snapshot(self):
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))
+        self.assertEqual(cm.read_seen(self.root), cm.digests(self.root / "mods"))
+
+    def test_a_start_with_nothing_changed_says_nothing(self):
+        cm.scan_changes(self.root)
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))
+
+    def test_an_updated_a_new_and_a_removed_mod_are_found_and_then_not_again(self):
+        (self.root / "mods" / "gamma").mkdir()
+        (self.root / "mods" / "gamma" / "mod.json").write_text("{}", encoding="utf-8")
+        cm.scan_changes(self.root)
+        (self.root / "mods" / "alpha" / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        (self.root / "mods" / "beta").mkdir()
+        (self.root / "mods" / "beta" / "mod.json").write_text("{}", encoding="utf-8")
+        (self.root / "mods" / "gamma" / "mod.json").unlink()
+        (self.root / "mods" / "gamma").rmdir()
+        self.assertEqual(cm.scan_changes(self.root), (["alpha"], ["beta"], ["gamma"]))
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))                 # (the snapshot moved on)
+
+    def test_a_snapshot_that_cannot_be_read_is_a_first_start(self):
+        (self.root / cm.SEEN_FILE).write_text("junk", encoding="utf-8")
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))
+        self.assertEqual(cm.read_seen(self.root), cm.digests(self.root / "mods"))
+
+
+class NoteDrawTests(Base):
+    real_scan = True
+
+    def wait_scan(self):
+        holder = self.win._cm_state["scan"]
+        deadline = time.monotonic() + 10
+        while not holder["done"] and time.monotonic() < deadline:
+            time.sleep(0.01)
+        self.assertTrue(holder["done"])
+
+    def start_clean(self):
+        """A start that has a snapshot to compare with: draw once, let the scan finish, then change a mod for the next start."""
+        cm.write_seen(cm.digests(self.root / "mods"), self.root)
+
+    def test_a_changed_mod_is_listed_at_the_top_of_the_login_screen(self):
+        self.start_clean()
+        (self.root / "mods" / "alpha" / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        self.draw()
+        self.wait_scan()
+        self.draw()
+        self.assertIn("Mods changed since your last start:", self.text)
+        self.assertIn("  updated: alpha", self.text)
+
+    def test_nothing_is_listed_when_nothing_changed_or_on_the_first_start(self):
+        self.start_clean()
+        self.draw()
+        self.wait_scan()
+        self.draw()
+        self.assertNotIn("Mods changed since your last start:", self.text)
+        other = SimpleNamespace()
+        (self.root / cm.SEEN_FILE).unlink()
+        cm_state_before = self.win
+        self.win = other
+        self.draw()
+        self.wait_scan()
+        self.draw()
+        self.assertNotIn("Mods changed since your last start:", self.text)
+        self.win = cm_state_before
+
+    def test_the_note_goes_away_after_a_while(self):
+        self.start_clean()
+        (self.root / "mods" / "alpha" / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        self.draw()
+        self.wait_scan()
+        self.draw()
+        self.assertIn("  updated: alpha", self.text)
+        with mock.patch.object(cm.time, "monotonic", return_value=time.monotonic() + cm.NOTE_S + 1):
+            self.draw()
+        self.assertNotIn("  updated: alpha", self.text)
+
+    def test_the_scan_is_started_once(self):
+        self.start_clean()
+        with mock.patch.object(cm.threading, "Thread") as thread:
+            self.draw()
+            self.draw()
+            self.draw()
+        self.assertEqual(thread.call_count, 1)
+
+    def test_nothing_is_scanned_or_drawn_where_there_is_no_picker(self):
+        (self.root / "modloader" / "modpicker.py").unlink()
+        with mock.patch.object(cm.threading, "Thread") as thread:
+            self.draw()
+        thread.assert_not_called()
+        self.assertFalse((self.root / cm.SEEN_FILE).exists())
+
+    def test_a_window_too_short_to_leave_room_above_the_card_skips_the_note(self):
+        self.start_clean()
+        (self.root / "mods" / "alpha" / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        self.screen = pygame.Surface((1200, 600))
+        self.draw()
+        self.wait_scan()
+        self.draw()
+        self.assertNotIn("Mods changed since your last start:", self.text)
+
+    def test_a_scan_that_fails_is_logged_and_the_login_screen_goes_on(self):
+        with mock.patch.object(cm, "scan_changes", side_effect=RuntimeError("boom")), self.assertLogs("change_mods", level="ERROR"):
+            self.draw()
+            self.wait_scan()
+        self.draw()
+        self.assertIn("CHANGE MODS", self.text)
+
+    def test_the_note_is_there_even_while_the_picker_is_open(self):
+        self.start_clean()
+        (self.root / "mods" / "alpha" / "thing.py").write_text("x = 2\n", encoding="utf-8")
+        self.draw()
+        self.wait_scan()
+        self.start()
+        self.draw()
+        self.assertIn("  updated: alpha", self.text)
+        self.assertIn("CHOOSING MODS...", self.text)
+
+
+class SnapshotOnRestartTests(Base):
+    def test_the_players_own_choice_is_not_reported_at_the_next_start(self):
+        cm.write_seen(cm.digests(self.root / "mods"), self.root)
+        (self.root / "mods" / "beta").mkdir()                                     # what the picker just did
+        (self.root / "mods" / "beta" / "mod.json").write_text("{}", encoding="utf-8")
+        with mock.patch.object(cm.relaunch, "restart_after_exit", return_value=True), \
+                mock.patch.object(cm.pygame.event, "post"):
+            cm.restart(self.win)
+        self.assertEqual(cm.read_seen(self.root), cm.digests(self.root / "mods"))
+        self.assertEqual(cm.scan_changes(self.root), ([], [], []))
+
+    def test_a_snapshot_that_cannot_be_kept_does_not_stop_the_restart(self):
+        with mock.patch.object(cm, "write_seen", side_effect=RuntimeError("boom")), self.assertLogs("change_mods", level="ERROR"), \
+                mock.patch.object(cm.relaunch, "restart_after_exit", return_value=True) as restart, \
+                mock.patch.object(cm.pygame.event, "post"):
+            cm.restart(self.win)
+        restart.assert_called_once()
+
+
 class HookTests(unittest.TestCase):
     """On the game's real login screen."""
 
@@ -389,8 +640,10 @@ class HookTests(unittest.TestCase):
         cm.reset_for_tests()
         self._tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self._tmp.cleanup)
+        self.addCleanup(finish_scans)
         self.root = make_root(Path(self._tmp.name))
-        for patcher in (mock.patch.object(cm, "_root", lambda: self.root), mock.patch.object(cm, "mods_in_effect", lambda: None)):
+        for patcher in (mock.patch.object(cm, "_root", lambda: self.root), mock.patch.object(cm, "mods_in_effect", lambda: None),
+                        mock.patch.object(cm, "_begin_scan", quiet_scan)):
             patcher.start()
             self.addCleanup(patcher.stop)
         self.screen_obj = self.Hooked(lambda _line: None, lambda _line: None)

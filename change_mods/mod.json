@@ -1,5 +1,5 @@
 {
-  "description": "CHANGE MODS: a button under the login card that opens the mod picker and, when you apply other mods, restarts the client so they are in use (change_mods.py).",
+  "description": "CHANGE MODS: a button under the login card that opens the mod picker and restarts the client when you apply other mods, and a note of the mods that changed since your last start (change_mods.py).",
   "requires": [
     "core"
   ],

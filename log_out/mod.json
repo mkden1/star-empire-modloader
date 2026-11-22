@@ -1,5 +1,5 @@
 {
-  "description": "LOG OUT: a button below the in-game ESC menu that closes the game and starts it again on the login screen, to pick another character (log_out.py).",
+  "description": "SWITCH USER: a button below the in-game ESC menu that lists your saved characters; pick one and the game restarts logged in as them (log_out.py).",
   "requires": [
     "core"
   ],

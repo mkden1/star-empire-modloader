@@ -219,7 +219,7 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 |---|---|---|---|
 | [`asset_watch`](asset_watch/README.md) | Times every image the window loads on demand (asset_watch.py). | 1 in Client |  |
 | [`autopilot_eta`](autopilot_eta/README.md) | The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py). | 2 in Client | render_alias |
-| [`change_mods`](change_mods/README.md) | CHANGE MODS: a button under the login card that opens the mod picker and, when you apply other mods, restarts the client so they are in use (change_mods.py). | 1 in Client | core |
+| [`change_mods`](change_mods/README.md) | CHANGE MODS: a button under the login card that opens the mod picker and restarts the client when you apply other mods, and a note of the mods that changed since your last start (change_mods.py). | 1 in Client | core |
 | [`chat_suggest`](chat_suggest/README.md) | Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py). | 3 in Client |  |
 | [`click_diag`](click_diag/README.md) | Click diagnostics: one client-log line per left click saying what was in range (click_diag.py). | 1 in Client | core |
 | [`colony_scan`](colony_scan/README.md) | Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py). | 6 in Client | core |
@@ -234,7 +234,7 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`galaxy_map`](galaxy_map/README.md) | The galaxy map as a movable, resizable window (galaxy_map_window.py), the Survey view and the VIEW SCANS button (which needs the scan_archive mod and is left out without it). | 61 in Client, render_mixin | render_alias, core |
 | [`gc_watch`](gc_watch/README.md) | Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py). | 4 in Client |  |
 | [`inventory_filter`](inventory_filter/README.md) | FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py). | 8 in Client, render_mixin | render_alias |
-| [`log_out`](log_out/README.md) | LOG OUT: a button below the in-game ESC menu that closes the game and starts it again on the login screen, to pick another character (log_out.py). | 2 in Client | core |
+| [`log_out`](log_out/README.md) | SWITCH USER: a button below the in-game ESC menu that lists your saved characters; pick one and the game restarts logged in as them (log_out.py). | 2 in Client | core |
 | [`music_prefetch`](music_prefetch/README.md) | Reads the next music track ahead and times every track load (music_prefetch.py). | 1 in Client |  |
 | [`net_drain`](net_drain/README.md) | Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window. | 4 in Client, protocol |  |
 | [`options_saver`](options_saver/README.md) | Keeps options.txt saves off the render thread (options_saver.py). | 3 in Client |  |
