@@ -1,0 +1,8 @@
+{
+  "description": "LOG OUT: a button below the in-game ESC menu that closes the game and starts it again on the login screen, to pick another character (log_out.py).",
+  "requires": [
+    "core"
+  ],
+  "category": "features",
+  "recommended": true
+}

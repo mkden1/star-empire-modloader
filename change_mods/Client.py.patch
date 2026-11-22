@@ -1,0 +1,6 @@
+# change_mods: hooks the login screen's draw and click (one hunk; every hunk only adds lines)
+
+@@ import change_mods # MOD: the login screen's CHANGE MODS button @@
+ from login import LoginScreen, MUSIC_LOGIN
++import change_mods  # MOD: a CHANGE MODS button under the login card (change_mods.py)
++change_mods.install(LoginScreen)   # MOD: hooks LoginScreen.draw and LoginScreen.handle_event by name

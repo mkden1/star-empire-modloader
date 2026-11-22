@@ -1,0 +1,11 @@
+# log_out: the ESC menu's LOG OUT button (every hunk only adds lines)
+
+@@ import log_out # MOD: the ESC menu's Log Out button @@
+                           _ITEM_RARITY_COLS, loot_box_half_world,
+                           deployed_station_visual_scale)
++import log_out  # MOD: a LOG OUT button below the ESC menu (log_out.py)
++log_out.install(RenderMixin)   # MOD: draws it after RenderMixin._draw_esc_menu
+
+@@ _frame_events = log_out.filter_events(self, _frame_events) # MOD @@
+             _frame_events = pygame.event.get()
++            _frame_events = log_out.filter_events(self, _frame_events)   # MOD: a press / release on the ESC menu's Log Out button

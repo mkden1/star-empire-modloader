@@ -1,0 +1,8 @@
+{
+  "description": "CHANGE MODS: a button under the login card that opens the mod picker and, when you apply other mods, restarts the client so they are in use (change_mods.py).",
+  "requires": [
+    "core"
+  ],
+  "category": "features",
+  "recommended": true
+}

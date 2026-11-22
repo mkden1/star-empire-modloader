@@ -91,7 +91,7 @@ client starts and the reason in `mods_report.txt` (repo root), for example
 * Mods are picked one by one, so a mod must work with only what it `requires`. Anything it imports at module level from
   ANOTHER mod's folder (or imports in a line its patch adds to the dev's file) goes in `mod.json`'s `requires`; shared
   helpers live in the `core` mod (`capture_settings`, `scan_paths`, `scan_writer`, `scan_file_lock`, `scan_data`,
-  `target_info`, `window_geometry`, `construction_stock`, `station_bodies`), not in a mod that is a feature. Two ways a
+  `target_info`, `window_geometry`, `construction_stock`, `station_bodies`, `relaunch`), not in a mod that is a feature. Two ways a
   mod used to need much more than it uses, both fixed: it imported a helper from a feature mod (the Ship Layouts window
   took its move / resize helpers from the galaxy map's module; the scan archive and the map took the file READERS from
   the recorder mods, which meant installing every recorder to read their files), and it used another mod's state without
@@ -219,6 +219,7 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 |---|---|---|---|
 | [`asset_watch`](asset_watch/README.md) | Times every image the window loads on demand (asset_watch.py). | 1 in Client |  |
 | [`autopilot_eta`](autopilot_eta/README.md) | The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py). | 2 in Client | render_alias |
+| [`change_mods`](change_mods/README.md) | CHANGE MODS: a button under the login card that opens the mod picker and, when you apply other mods, restarts the client so they are in use (change_mods.py). | 1 in Client | core |
 | [`chat_suggest`](chat_suggest/README.md) | Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py). | 3 in Client |  |
 | [`click_diag`](click_diag/README.md) | Click diagnostics: one client-log line per left click saying what was in range (click_diag.py). | 1 in Client | core |
 | [`colony_scan`](colony_scan/README.md) | Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py). | 6 in Client | core |
@@ -226,13 +227,14 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`construction_diag`](construction_diag/README.md) | Logs what the server sends about station construction (construction_diag.py). | 1 in Client |  |
 | [`construction_eta`](construction_eta/README.md) | Estimated time to complete for each Construction Bay project (construction_eta.py). | 1 in Client | render_alias, core |
 | [`construction_tooltip`](construction_tooltip/README.md) | What a selected Construction Bay blueprint costs against the station's stock (construction_tooltip.py). | 1 in Client | render_alias, core |
-| [`core`](core/README.md) | Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock) and which body a station is on (station_bodies). It changes nothing in the game by itself. | (library) |  |
+| [`core`](core/README.md) | Shared helpers other mods import: the Data Capture switches (capture_settings), where scan_data/ lives (scan_paths), the off-thread file writer (scan_writer, scan_file_lock), the read side of every scan file (scan_data), the orbit figures (target_info), the move / resize / plate geometry of the HUD windows (window_geometry), the Construction Bay stock helpers (construction_stock), which body a station is on (station_bodies) and starting the client again once it has closed (relaunch). It changes nothing in the game by itself. | (library) |  |
 | [`crash_log_thread`](crash_log_thread/README.md) | crash_log writes the client log from a background thread, so file I/O cannot stall the game. | 5 in crash_log |  |
 | [`damage_types`](damage_types/README.md) | Imports the damage_types helpers that the combat log uses. | 1 in Client |  |
 | [`freeze_watchdog`](freeze_watchdog/README.md) | Stack dump into the log when a thread stalls (freeze_watchdog.py); heartbeats from the main loop and the renderer. | 4 in Client | core |
 | [`galaxy_map`](galaxy_map/README.md) | The galaxy map as a movable, resizable window (galaxy_map_window.py), the Survey view and the VIEW SCANS button (which needs the scan_archive mod and is left out without it). | 61 in Client, render_mixin | render_alias, core |
 | [`gc_watch`](gc_watch/README.md) | Logs garbage-collection pauses and freezes the heap after start-up (gc_watch.py). | 4 in Client |  |
 | [`inventory_filter`](inventory_filter/README.md) | FILTER buttons and a tab on the ship inventories and station Storage (inventory_filter.py). | 8 in Client, render_mixin | render_alias |
+| [`log_out`](log_out/README.md) | LOG OUT: a button below the in-game ESC menu that closes the game and starts it again on the login screen, to pick another character (log_out.py). | 2 in Client | core |
 | [`music_prefetch`](music_prefetch/README.md) | Reads the next music track ahead and times every track load (music_prefetch.py). | 1 in Client |  |
 | [`net_drain`](net_drain/README.md) | Time-boxes the network drain per frame and times each message handler (/profiler), so a backlog cannot freeze the window. | 4 in Client, protocol |  |
 | [`options_saver`](options_saver/README.md) | Keeps options.txt saves off the render thread (options_saver.py). | 3 in Client |  |
