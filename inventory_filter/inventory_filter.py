@@ -25,6 +25,7 @@ carries on unfiltered. ``STAR_EMPIRE_NO_INVENTORY_FILTER=1`` turns it off.
 
 from __future__ import annotations
 
+import contextlib
 import logging
 import os
 import time
@@ -348,6 +349,18 @@ def _blit_text(win, screen, text, size, colour, x, y, max_w=None, bold=True, rig
     return surface.get_width()
 
 
+def _blit_label(win, screen, text, size, colour, x, y) -> int:
+    """The footer button's label, from the GAME's label cache (``_cached_label``) like the search bar's own text: the dev's
+    HUD-opacity tests (v0.5.88, test_hud_opacity) take every picture that stays solid in a faded inventory for a label of
+    that cache. A window without the cache (a bare test stand-in) falls back to this module's own."""
+    cached = getattr(win, "_cached_label", None)
+    if not callable(cached):
+        return _blit_text(win, screen, text, size, colour, x, y)
+    surface = cached(text, colour, win._instrument_font(size, bold=True))
+    screen.blit(surface, (x, y))
+    return surface.get_width()
+
+
 def split_footer(win, rect: pygame.Rect) -> tuple:
     """A search-bar footer cut into the strip the search field keeps and the FILTER button's."""
     s = win._s
@@ -367,8 +380,12 @@ def _rarity_colour(tier):
     return model.RARITY_RGB.get(tier, (180, 180, 180))
 
 
-def draw_button(win, screen, rect: pygame.Rect, owner: str, hover_zone, mouse) -> None:
-    """The FILTER button, inside the footer strip *rect* ``split_footer`` gave. Remembers its rect for the clicks."""
+def draw_button(win, screen, rect: pygame.Rect, owner: str, hover_zone, mouse, fade=None) -> None:
+    """The FILTER button, inside the footer strip *rect* ``split_footer`` gave. Remembers its rect for the clicks.
+
+    ``fade`` (v0.5.88: the inventory's Edit UI opacity, a ``gl_ui_renderer.UiFade``, or None at full opacity) is what the
+    game hands its footer draw: the button's plate and funnel fade with the window, its label stays solid, as the game's
+    own search text does."""
     _ensure(win)
     c = _colours
     s = win._s
@@ -385,10 +402,11 @@ def draw_button(win, screen, rect: pygame.Rect, owner: str, hover_zone, mouse) -
     count = spec.count()
     label = f"FILTER {count}" if count else "FILTER"
     room = rect.right - icon.right - s(10)
-    if win._instrument_font(10, bold=True).size(label)[0] <= room:
-        _blit_text(win, screen, label, 10, colour, icon.right + s(5), rect.centery - s(6))
-    elif count:
-        _blit_text(win, screen, str(count), 10, colour, icon.right + s(4), rect.centery - s(6))
+    with (fade.solid() if fade is not None else contextlib.nullcontext()):
+        if win._instrument_font(10, bold=True).size(label)[0] <= room:
+            _blit_label(win, screen, label, 10, colour, icon.right + s(5), rect.centery - s(6))
+        elif count:
+            _blit_label(win, screen, str(count), 10, colour, icon.right + s(4), rect.centery - s(6))
     win._if_buttons[owner] = pygame.Rect(rect)
 
 
@@ -397,31 +415,36 @@ def _wrap_footer(window_cls) -> None:
     player_bar = window_cls._draw_inv_search_bar
     ship_bar = window_cls._draw_hinv_search_bar
 
-    def draw_inv_search_bar(self, screen, rect, hover_zone, mouse):
+    # v0.5.88 gave both footer draws a `fade=None` keyword (the inventory's Edit UI opacity) and the extra ship windows'
+    # lambda passes it on EVERY call, so these wrappers take it and hand it to the game's bar - but only when there is one,
+    # so an older game whose bar has no such parameter still works.
+    def draw_inv_search_bar(self, screen, rect, hover_zone, mouse, fade=None):
+        extra = {} if fade is None else {"fade": fade}
         if not _enabled():
-            return player_bar(self, screen, rect, hover_zone, mouse)
+            return player_bar(self, screen, rect, hover_zone, mouse, **extra)
         try:
             _ensure(self)
             field, button = split_footer(self, rect)
-            player_bar(self, screen, field, hover_zone, mouse)
+            player_bar(self, screen, field, hover_zone, mouse, **extra)
             pygame.draw.line(screen, _colours["grid"], (field.right, rect.top), (rect.right - 2, rect.top))
-            draw_button(self, screen, button, PLAYER, hover_zone, mouse)
+            draw_button(self, screen, button, PLAYER, hover_zone, mouse, fade)
         except Exception:
             _switch_off("draw_inv_search_bar()")
-            return player_bar(self, screen, rect, hover_zone, mouse)
+            return player_bar(self, screen, rect, hover_zone, mouse, **extra)
 
-    def draw_hinv_search_bar(self, win, screen, rect, hover_zone, mouse):
+    def draw_hinv_search_bar(self, win, screen, rect, hover_zone, mouse, fade=None):
+        extra = {} if fade is None else {"fade": fade}
         if not _enabled():
-            return ship_bar(self, win, screen, rect, hover_zone, mouse)
+            return ship_bar(self, win, screen, rect, hover_zone, mouse, **extra)
         try:
             _ensure(self)
             field, button = split_footer(self, rect)
-            ship_bar(self, win, screen, field, hover_zone, mouse)
+            ship_bar(self, win, screen, field, hover_zone, mouse, **extra)
             pygame.draw.line(screen, _colours["grid"], (field.right, rect.top), (rect.right - 2, rect.top))
-            draw_button(self, screen, button, win.panel_id, hover_zone, mouse)
+            draw_button(self, screen, button, win.panel_id, hover_zone, mouse, fade)
         except Exception:
             _switch_off("draw_hinv_search_bar()")
-            return ship_bar(self, win, screen, rect, hover_zone, mouse)
+            return ship_bar(self, win, screen, rect, hover_zone, mouse, **extra)
 
     for wrapper, original in ((draw_inv_search_bar, player_bar), (draw_hinv_search_bar, ship_bar)):
         wrapper.__wrapped__ = original

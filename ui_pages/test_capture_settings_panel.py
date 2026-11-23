@@ -59,13 +59,14 @@ class EscMenuEntryTests(_Fixture):
         window = make_window(_esc_menu_open=True)
         self.draw_menu(window)
         rects = window._esc_btn_rects
-        self.assertEqual({"panel", "options", "capture", "mods", "redeem", "exit"}, set(rects))
+        # the game's own buttons are options, redeem, logout (new in v0.5.88) and exit; ours slot in under Options
+        self.assertEqual({"panel", "options", "capture", "mods", "redeem", "logout", "exit"}, set(rects))
         for key, rect in rects.items():
             with self.subTest(button=key):
                 self.assertTrue(self.screen.get_rect().contains(rect))
                 self.assertTrue(rects["panel"].contains(rect))
         order = sorted((r.y, k) for k, r in rects.items() if k != "panel")
-        self.assertEqual([k for _y, k in order], ["options", "capture", "mods", "redeem", "exit"])
+        self.assertEqual([k for _y, k in order], ["options", "capture", "mods", "redeem", "logout", "exit"])
 
 
 class PageTests(_Fixture):

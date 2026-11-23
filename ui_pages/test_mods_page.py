@@ -248,7 +248,7 @@ class HookTests(unittest.TestCase):
     def test_the_esc_menu_has_the_row_and_draws_the_page(self):
         self.assertIn('("mods", "  Mods")', self.render)
         self.assertIn("mods_page.draw(self, screen)", self.render)
-        self.assertIn("_BH * 5 + _PAD * 6", self.render)
+        self.assertIn("_BH * 6 + _PAD * 7", self.render)       # the game's 4 buttons (v0.5.88: with Logout) + ours
 
 
 if __name__ == "__main__":

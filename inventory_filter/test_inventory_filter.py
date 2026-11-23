@@ -214,17 +214,43 @@ class ShipWindowTests(Base):
 
 
 class FooterButtonTests(Base):
-    def draw_footer(self, owner=inf.PLAYER):
+    def draw_footer(self, owner=inf.PLAYER, **kwargs):
         rect = pygame.Rect(PLAYER_RECT.x, PLAYER_RECT.bottom - 26, PLAYER_RECT.w, 26)
         self.win._panels["inventory"]["_footer_rect"] = rect
         zones = []
         if owner == inf.PLAYER:
-            self.win._draw_inv_search_bar(self.screen, rect, zones.append, (0, 0))
+            self.win._draw_inv_search_bar(self.screen, rect, zones.append, (0, 0), **kwargs)
         else:
             sw = self.win._ship_windows[owner]
             self.win._draw_hinv_search_bar(sw, self.screen, pygame.Rect(SHIP_RECT.x, SHIP_RECT.bottom - 26,
-                                                                        SHIP_RECT.w, 26), zones.append, (0, 0))
+                                                                        SHIP_RECT.w, 26), zones.append, (0, 0), **kwargs)
         return rect, zones
+
+    def test_the_games_fade_is_accepted_and_only_the_buttons_label_stays_solid(self):
+        # v0.5.88: the game hands its footer draw `fade` (the inventory's Edit UI opacity), and the extra ship windows pass
+        # it on EVERY call, even as None. A wrapper without the keyword raised TypeError there every frame.
+        class Fade:
+            entered = 0
+
+            def solid(self):
+                fade = self
+
+                class Context:
+                    def __enter__(self):
+                        fade.entered += 1
+
+                    def __exit__(self, *exc):
+                        return False
+                return Context()
+
+        sw = _Window.with_ship(self.win)
+        for owner in (inf.PLAYER, sw.panel_id):
+            with self.subTest(owner=owner):
+                self.draw_footer(owner, fade=None)
+                fade = Fade()
+                self.draw_footer(owner, fade=fade)
+                self.assertGreaterEqual(fade.entered, 2)         # the game's search text and our label
+                self.assertFalse(inf._failed)
 
     def test_the_footer_keeps_its_search_field_and_gains_a_button(self):
         rect, zones = self.draw_footer()

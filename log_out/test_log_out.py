@@ -204,7 +204,9 @@ class DrawTests(Base):
     def test_the_games_own_button_table_is_left_exactly_as_the_game_made_it(self):
         self.draw()
         self.open_list()
-        self.assertEqual(set(self.win._esc_btn_rects), {"panel", "options", "capture", "mods", "redeem", "exit"})
+        # (the game's own buttons: options, redeem, logout - new in v0.5.88 - and exit, plus the UI Panels mod's two)
+        self.assertEqual(set(self.win._esc_btn_rects),
+                         {"panel", "options", "capture", "mods", "redeem", "logout", "exit"})
 
     def test_it_is_drawn_amber_so_it_is_not_taken_for_exit_game(self):
         screen = self.draw()

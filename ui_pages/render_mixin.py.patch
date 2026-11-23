@@ -57,17 +57,16 @@
 +        if (self._esc_menu_open or self._options_open
 +                or self._ui_panels_settings_open):
 
-@@ _PH = _BH * 4 + _PAD * 5 + self._s(36) # MOD: +1 row, "Data Capt @@
+@@ _PH = _BH * 6 + _PAD * 7 + self._s(36) # MOD: +2 rows, "Data Capt @@
              if self._esc_menu_open and not self._options_open:
                  _BW, _BH = self._s(260), self._s(48)
                  _PAD = self._s(14)
                  _PW  = _BW + _PAD * 2
-                 # Panel height fits 3 buttons (Options, Redeem Code,
-                 # Exit Game).  +1 button vs the old layout (which had
-                 # 2 buttons + 1 inter-button gap), so add one extra
-                 # (_BH + _PAD) for the new row.
--                _PH  = _BH * 3 + _PAD * 4 + self._s(36)
-+                _PH  = _BH * 5 + _PAD * 6 + self._s(36)   # MOD: +2 rows, "Data Capture" and "Mods"
+                 # Panel height fits 4 buttons (Options, Redeem Code,
+                 # Logout, Exit Game): the title strip, then a gap above
+                 # each button and one below the last.
+-                _PH  = _BH * 4 + _PAD * 5 + self._s(36)
++                _PH  = _BH * 6 + _PAD * 7 + self._s(36)   # MOD: +2 rows, "Data Capture" and "Mods"
                  _px  = (_sw - _PW) // 2
                  _py  = (_sh - _PH) // 2
  

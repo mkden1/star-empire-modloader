@@ -127,7 +127,11 @@ class HookTests(unittest.TestCase):
         # start() still calls plain pygame.init() (the hook wraps pygame.init itself) and nothing of ours is
         # injected there. The dev edits around it (v0.5.58 sets an SDL hint first, v0.5.60 changed the comment
         # after it), so pin the call within start()'s head, not its neighbours.
-        head = source.split("    def start(self):\n", 1)[1].split("pygame.display.set_mode(", 1)[0]
+        # (v0.5.88 gave it a return annotation, `def start(self) -> bool:`, so only the name and `self` are pinned.)
+        import re
+        found = re.search(r"    def start\(self\)[^\n]*:\n", source)
+        self.assertIsNotNone(found, "App.start() moved or was renamed")
+        head = source[found.end():].split("pygame.display.set_mode(", 1)[0]
         self.assertIn("        pygame.init()\n", head)
         self.assertNotIn("pump_watch", head)
 

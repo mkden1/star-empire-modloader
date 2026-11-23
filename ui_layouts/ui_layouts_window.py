@@ -68,6 +68,7 @@ DEFAULT_PLACE = {
     "hotbar_pos": (("_hotbar_pos_x", None), ("_hotbar_pos_y", None)),
     "stats": (("_stats_pos_x", None), ("_stats_pos_y", None)),
     "squad": (("_squad_pos_x", None), ("_squad_pos_y", None)),
+    "squad_bars": (("_squad_bars_pos", None),),                 # v0.5.88: the squad's bars strip (squad_bars.py)
     "minimap": (("_mm_pos_x", None), ("_mm_pos_y", None)),
     "coalition": (("_coalition_pos_x", None), ("_coalition_pos_y", None)),
     "friends": (("_friends_pos_x", None), ("_friends_pos_y", None)),
@@ -77,6 +78,7 @@ DEFAULT_PLACE = {
     "bot_dock_picker": (("_rc_dock_pos", None),),
     "run_summary": (("_run_summary_pos", None),),
     "mechlings": (("_mechlings_pos", None),),
+    "mail": (("_mail_pos", None),),                             # v0.5.88: the MAIL window (mail_gui.py)
 }
 # The same for a size that can be null (the Mission Detail window's, until the player resizes it).
 DEFAULT_SIZE = {

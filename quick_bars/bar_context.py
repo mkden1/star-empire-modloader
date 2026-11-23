@@ -21,7 +21,8 @@ import contextlib
 
 SLOTS = 10
 # Everything the game's bar code keeps per bar. (Not per bar, and left alone: the item being dragged out of the inventory, the
-# Queue Delay, the inventory tallies the slots' badges are drawn from.)
+# Queue Delay, the inventory tallies the slots' badges are drawn from, the drone / wing presses still waiting for the server's
+# answer (``_hotbar_spent``, per item type: the charges are the player's, not a bar's).)
 STATE_ATTRS = (
     "_hotbar", "_hotbar_shown_set", "_hotbar_pos_x", "_hotbar_pos_y", "_hotbar_slot_rects", "_hotbar_page_rects",
     "_hotbar_panel_rect", "_hotbar_layout_cache", "_hotbar_animation_geometry", "_hotbar_press_slot",

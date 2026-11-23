@@ -1,0 +1,1 @@
+test_esc_logout.py::EscMenuLogoutButtonTests::test_logout_sits_above_exit_game_inside_the_panel  # the dev pins the ESC menu's buttons to exactly options, redeem, logout, exit; this mod adds Data Capture and Mods rows under Options (the rest of the test, that every button sits inside the panel and above Exit Game, is covered by ui_pages' own EscMenuEntryTests)

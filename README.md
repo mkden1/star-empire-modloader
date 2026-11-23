@@ -16,14 +16,14 @@ mods/
                          "order": 0, "enabled": true}  (all optional but the description; see "The mod picker" below)
     Client.py.patch     changes to the dev's Client.py (one patch file per game file: <File>.py.patch)
     render_mixin.py.patch
-    chat_suggest.py     the mod's own code ...
-    test_chat_suggest.py ... and its tests
+    range_rings.py      the mod's own code ...
+    test_range_rings.py ... and its tests
     (a web asset, a data file)   anything else the mod's modules read from their own folder
 ```
 
 A mod folder is the whole mod: its patches, its modules, its tests, its data. Every folder with `.py` files in it is put
 on `sys.path` (switched-off mods too: another mod's module may import it), so the dev's patched code just says
-`import chat_suggest` and the tests can import each other. A folder with no patch is a library other mods use
+`import range_rings` and the tests can import each other. A folder with no patch is a library other mods use
 (`scan_archive`: the scan dashboard and its web assets). Code that needs the client's folders asks `modloader`
 (`modloader.REPO_DIR`, and `modloader.PROJECT_DIR` for the shared `scan_data/`), never its own `__file__`, so a mod can
 be moved without breaking it.
@@ -41,7 +41,7 @@ A unified diff without line numbers. Each hunk says "find these lines, change th
 ```
 @@ a label that shows up in messages @@
  import capture_settings_panel  # MOD: the ESC menu's Data Capture page      <- context: must match exactly once
-+import chat_suggest  # MOD: suggest system names while typing /ap            <- added
++import range_rings  # MOD: range rings around the ship                      <- added
  import pump_watch                                                           <- context
 
 @@ the zoom floor @@
@@ -65,7 +65,7 @@ A unified diff without line numbers. Each hunk says "find these lines, change th
 The client still starts: a mod whose hunk no longer matches (or matches twice), or whose edits overlap another
 mod's, is switched off **as a whole**, together with any mod that `requires` it. You get a message box when the
 client starts and the reason in `mods_report.txt` (repo root), for example
-`Client.py: anchor not found for mods/chat_suggest/Client.py.patch:7 [import chat_suggest ...]`.
+`Client.py: anchor not found for mods/range_rings/Client.py.patch:7 [import range_rings ...]`.
 
 1. `custom_build\python.exe -I _internal\modloader.py` prints the same report (exit code 1 when a mod was
    switched off), and `_internal/test_mods_apply.py` fails with the report, so the suite catches it too. In the
@@ -78,7 +78,7 @@ client starts and the reason in `mods_report.txt` (repo root), for example
 ## Switches
 
 * `STAR_EMPIRE_NO_MODS=1` -- run the game exactly as the dev shipped it ("is this bug mine or the dev's?").
-* `STAR_EMPIRE_DISABLE_MODS=chat_suggest,galaxy_map` -- turn named mods off.
+* `STAR_EMPIRE_DISABLE_MODS=range_rings,galaxy_map` -- turn named mods off.
 * `"enabled": false` in a mod's `mod.json` -- the same, kept.
 
 ## Rules
@@ -220,7 +220,6 @@ goes in and refuses saved logins, logs and settings. The loader looks for the ga
 | [`asset_watch`](asset_watch/README.md) | Times every image the window loads on demand (asset_watch.py). | 1 in Client |  |
 | [`autopilot_eta`](autopilot_eta/README.md) | The autopilot banner's 'ETA m:ss' (autopilot_eta.py, autopilot_route_sim.py). | 2 in Client | render_alias |
 | [`change_mods`](change_mods/README.md) | CHANGE MODS: a button under the login card that opens the mod picker and restarts the client when you apply other mods, and a note of the mods that changed since your last start (change_mods.py). | 1 in Client | core |
-| [`chat_suggest`](chat_suggest/README.md) | Suggests system names (favourites first) while you type /ap in the chat (chat_suggest.py). | 3 in Client |  |
 | [`click_diag`](click_diag/README.md) | Click diagnostics: one client-log line per left click saying what was in range (click_diag.py). | 1 in Client | core |
 | [`colony_scan`](colony_scan/README.md) | Captures colony station setups and shuttle routes for the scan archive (colony_scan_logger.py, shuttle_route_capture.py). | 6 in Client | core |
 | [`combat_log`](combat_log/README.md) | The Combat Log window and floating damage numbers, with shooter attribution through the shield-effects matcher. | 16 in Client, render_mixin, shield_effects | damage_types |

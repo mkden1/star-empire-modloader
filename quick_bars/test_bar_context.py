@@ -353,9 +353,11 @@ class StasisTests(Base):
 class RealGameTests(unittest.TestCase):
     """The game's own code, as the context swap relies on it: if a game update adds state to the bar, this says so."""
 
-    # What the bar's code writes that is NOT per bar (one drag at a time, one Queue Delay, the inventory tallies, the key map).
+    # What the bar's code writes that is NOT per bar (one drag at a time, one Queue Delay, the inventory tallies, the key map, and -
+    # new in v0.5.88 - the drone / wing presses the server has not answered yet: kept per exact item TYPE, and the server's charges
+    # are the player's, not a bar's, so two bars holding the same drone must see the same spent presses).
     SHARED = {"_hotbar_drag_item", "_hotbar_queue_delay", "_hotbar_inventory_cache_version", "_hotbar_inventory_counts_cache",
-              "_hotbar_fitted_types_cache", "_hotbar_key_to_slot"}
+              "_hotbar_fitted_types_cache", "_hotbar_key_to_slot", "_hotbar_spent"}
 
     def assigned(self, source: str) -> set:
         import re

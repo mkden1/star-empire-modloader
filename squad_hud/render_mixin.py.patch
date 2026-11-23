@@ -1,4 +1,5 @@
-# squad_hud: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text)
+# squad_hud: patches to the game's render_mixin.py (generated from the dev's v0.5.84 text; the bar-row label/value hunks
+# re-pointed for v0.5.88, where the dev draws the label and value inside `with _solid():` so a faded HUD keeps its text solid)
 
 @@ hide_bar_values: bool = False, @@
                      instrument_style: bool = False,
@@ -38,7 +39,6 @@
 +                        + self._s(6) + self._s(6))
 
 @@ if _has_label: @@
--                        screen.blit(_ls, (px + self._PNL_PAD, _sy))
 -                        # A bar's value changes as fast as its owner is hit:
 -                        # the bounded live-label cache, so those strings do
 -                        # not crowd the captions out of the shared one.
@@ -46,12 +46,16 @@
 -                            f"{_compact_number(_bval)}/{_compact_number(_bmax)}",
 -                            _GM_VALUE if instrument_style else self._PNL_DIM,
 -                            _bf)
--                        screen.blit(_vs,
--                                    (px + _draw_w - _vs.get_width() - self._PNL_PAD,
--                                     _sy))
+-                        with _solid():
+-                            screen.blit(_ls, (px + self._PNL_PAD, _sy))
+-                            screen.blit(
+-                                _vs,
+-                                (px + _draw_w - _vs.get_width() - self._PNL_PAD,
+-                                 _sy))
 -                        _bar_screen_y = _sy + _bar_text_h + self._s(1)
 +                        if _has_label:
-+                            screen.blit(_ls, (px + self._PNL_PAD, _sy))
++                            with _solid():
++                                screen.blit(_ls, (px + self._PNL_PAD, _sy))
 +                        _show_value = True
 +                        if hide_bar_values:
 +                            _row_rect = pygame.Rect(
@@ -75,9 +79,10 @@
 +                                f"{_compact_number(_bval)}/{_compact_number(_bmax)}",
 +                                _GM_VALUE if instrument_style else self._PNL_DIM,
 +                                _bf)
-+                            screen.blit(_vs,
-+                                        (px + _draw_w - _vs.get_width() - self._PNL_PAD,
-+                                         _sy))
++                            with _solid():
++                                screen.blit(_vs,
++                                            (px + _draw_w - _vs.get_width() - self._PNL_PAD,
++                                             _sy))
 
 @@ _cy += _bar_text_h + _bar_text_gap + self._s(6) + self._s(6) @@
 -                    _cy += _bar_text_h + self._s(1) + self._s(6) + self._s(6)
