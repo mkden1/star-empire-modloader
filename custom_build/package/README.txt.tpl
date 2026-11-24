@@ -18,6 +18,10 @@ That one file is all you ever run. Each time it:
     launcher opens;
   * checks that every mod still fits this version of the game. A mod that does not is switched off and named in a
     message; the other mods keep working, and the game always starts;
+  * keeps the game runnable afterwards too: a mod whose code no longer takes what the game passes it is switched off before
+    the window opens (the game restarts once without it); if the game crashes and a mod was the cause, that mod is
+    switched off from the next start; two crashes in a row nobody can be blamed for start the game with every mod off,
+    once. A mod switched off like this comes back by itself when the game or the mod is updated;
   * starts the game with your mods.
 
 Already have the game installed? Put everything from this folder into your Star Empire folder (next to Client.exe), or
@@ -66,6 +70,8 @@ IF SOMETHING GOES WRONG
   did (it also says which mods were refreshed from mods_available); picker_error.txt appears if the mod window could not open (then copy mod folders into "mods" by hand).
 * To start without running the official launcher first (no internet, or in a hurry):  set STAR_EMPIRE_NO_UPDATE=1
 * To keep the mods in "mods" exactly as they are (no refresh from mods_available):  set STAR_EMPIRE_NO_MOD_REFRESH=1
+* mods_auto_off.json (in this folder) lists the mods the loader switched off after a problem, and why. Delete it to give
+  them all another try now; to turn this safety net off altogether:   set STAR_EMPIRE_NO_MODGUARD=1
 * To start with no mods at all:   set STAR_EMPIRE_NO_MODS=1   before launching, or press "None" and then "Apply" in Choose Mods.bat.
 * To switch some off without deleting them:   set STAR_EMPIRE_DISABLE_MODS=combat_log,range_rings
 * Mods write their settings (*.json) and recorded data (scan_data) into this folder, never into the game's.

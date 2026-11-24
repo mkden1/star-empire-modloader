@@ -265,6 +265,22 @@ KNOWN_UNRELATED_FAILURES = {
     "_internal/test_subpixel_rendering.py::SubpixelRenderingTests::test_fallback_hulls_and_forward_arrow_follow_fractional_translation",
     "_internal/test_subpixel_rendering.py::SubpixelRenderingTests::test_fighters_are_drawn_but_never_offered_as_shield_hit_targets",
     "_internal/test_subpixel_rendering.py::SubpixelRenderingTests::test_stasis_aura_is_two_circles_on_the_fractional_anchor",
+    # v0.5.88 (2026-11-23): the dev's bare-window harness (make_owner) no longer ends up with a "target" entry in
+    # `_panel_full_rects` after the retained-layer draw (KeyError: 'target', test_profiler_review_fixes.py:175), a stale
+    # test of his: it fails the same with every mod switched off (STAR_EMPIRE_NO_MODS=1).
+    "_internal/test_profiler_review_fixes.py::PointerZoneTests::test_the_pointer_repaints_a_panel_only_when_it_changes_what_is_lit",
+    # v0.5.89.1 (2026-11-24), all six fail the same with every mod switched off (STAR_EMPIRE_NO_MODS=1), so they are the
+    # dev's own stale tests:
+    # (1) on_coalition_state now calls `_coalition_vault.rates(data)`, and test_coalition_presence compiles that method in
+    #     an isolated namespace that has no `_coalition_vault` - NameError (the real client imports it at Client.py:95).
+    "_internal/test_coalition_presence.py::CoalitionChatTests::test_a_login_line_does_not_blink_the_tab_but_a_message_does",
+    "_internal/test_coalition_presence.py::CoalitionChatTests::test_logins_and_logouts_are_posted_to_coalition_chat",
+    "_internal/test_coalition_presence.py::CoalitionChatTests::test_the_login_message_is_posted_once_and_its_changes_after",
+    "_internal/test_coalition_presence.py::CoalitionChatTests::test_the_option_turned_off_posts_nothing",
+    "_internal/test_coalition_presence.py::CoalitionChatTests::test_the_same_roster_sent_again_posts_nothing",
+    # (2) the ship pass now reads `self._deployable_states`, which the dev's ShipRenderScene stand-in lacks (same family as
+    #     the five test_subpixel_rendering tests listed above); this sixth one only reached it now.
+    "_internal/test_subpixel_rendering.py::SubpixelRenderingTests::test_station_tags_stay_on_whole_pixels",
 }
 
 

@@ -315,6 +315,7 @@ class BuildPackageTests(unittest.TestCase):
         self.assertLess(text.index("moderngl_compat.install()"), text.index("run_main("))
         self.assertLess(text.index("sys.path.append(_LIB)"), text.index("moderngl_compat.install()"))
         self.assertIn("moderngl_compat.py", build_package.RUNTIME_FILES)
+        self.assertIn("modguard.py", build_package.RUNTIME_FILES)    # the safety net ships (and is updated) with the loader
         for name in build_package.RUNTIME_FILES:                    # the runtime's own files are in _internal/
             self.assertTrue((Path(modloader.INTERNAL_DIR) / name).is_file(), name)
 

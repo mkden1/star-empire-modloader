@@ -66,8 +66,10 @@ MOD_SKIP_SUFFIXES = (".pyc", ".log", ".old")
 
 # Files from _internal/ that belong to the runtime, not to a mod: they go into modloader/ next to the loader and the
 # launcher applies them itself, always. moderngl_compat: the runtime's moderngl is stricter than the one the game is
-# written for, and without it the client closes on its first frame in the world.
-RUNTIME_FILES = ("moderngl_compat.py",)
+# written for, and without it the client closes on its first frame in the world. modguard: the loader's safety net (a mod
+# whose hooks no longer fit the game is switched off before the window opens, a crash is pinned on its mod, safe mode);
+# modloader.py imports it when it is there and runs without it when it is not.
+RUNTIME_FILES = ("moderngl_compat.py", "modguard.py")
 
 # Everything the build writes into the output folder at its top level. A rebuild replaces exactly these and leaves the
 # rest of the folder alone: the game itself (Client.exe, _internal ... put there by the official launcher), the mods the

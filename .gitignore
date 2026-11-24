@@ -15,8 +15,10 @@
 /_internal/*
 !/_internal/modloader.py
 !/_internal/moderngl_compat.py
+!/_internal/modguard.py
 !/_internal/conftest.py
 !/_internal/test_modloader.py
+!/_internal/test_modguard.py
 !/_internal/test_moderngl_compat.py
 !/_internal/test_mods_apply.py
 !/_internal/test_package.py

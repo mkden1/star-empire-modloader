@@ -54,6 +54,12 @@ under ``custom_build/mod_cache`` keyed by the patched text, so a normal start do
 Switches: ``STAR_EMPIRE_NO_MODS=1`` runs the game as the dev shipped it; ``STAR_EMPIRE_DISABLE_MODS=a,b`` turns
 named mods off (is this bug mine or the dev's?).
 
+Beyond patches (modguard.py, on for a real client start, ``STAR_EMPIRE_NO_MODGUARD=1`` turns it off): Client.py runs in two
+pieces so the mods' wrappers can be checked against the game's functions before the window opens (a wrapper that cannot take
+what the game passes switches its mod off and restarts the game), a crash that ends the game is pinned on its mod when it can
+be and that mod stays off until the game or the mod changes (``mods_auto_off.json``), and two unexplained crashes in a row
+start the game once with every mod off.
+
 ``python modloader.py`` prints the report and exits 1 when a mod is switched off (use it after an update).
 """
 
@@ -76,6 +82,11 @@ from pathlib import Path
 from typing import Mapping, Optional, Sequence
 
 LOG = logging.getLogger("modloader")
+
+try:                                    # modguard.py reads the command that started this process when it is imported: do it before the launch scripts change directory
+    import modguard                     # noqa: F401
+except Exception:                       # a package without it, or one that cannot load: the game starts without the safety net
+    pass
 
 ENV_OFF = "STAR_EMPIRE_NO_MODS"
 ENV_DISABLE = "STAR_EMPIRE_DISABLE_MODS"
@@ -372,6 +383,8 @@ class BuildResult:
     skipped: "list[str]" = field(default_factory=list)              # switched off on purpose
     sources: "dict[str, bytes]" = field(default_factory=dict)       # game file -> patched bytes
     vanilla: "dict[str, bytes]" = field(default_factory=dict)       # game file -> the dev's bytes
+    spans: "dict[str, list[tuple[int, int, str]]]" = field(default_factory=dict)   # game file -> (first line, last line, mod) of every line a patch added, numbered as in the PATCHED file
+    auto_off: "dict[str, str]" = field(default_factory=dict)        # mod -> why it was switched off after a problem (modguard.py); also in ``failed``
 
     @property
     def ok(self) -> bool:
@@ -382,7 +395,8 @@ class BuildResult:
         if self.skipped:
             lines.append("switched off on purpose: " + ", ".join(self.skipped))
         for name, reasons in self.failed.items():
-            lines.append(f"SWITCHED OFF  {name}:")
+            lines.append(f"SWITCHED OFF  {name}"
+                         + (" (automatically; it comes back when the game or the mod changes)" if name in self.auto_off else "") + ":")
             lines.extend(f"    {r}" for r in reasons)
         return "\n".join(lines)
 
@@ -481,6 +495,8 @@ def build(mods: "Sequence[Mod]", read_game_file, disabled: "Sequence[str]" = ())
         pos = 0
         for e in file_edits:
             out.extend(src.lines[pos:e.start])
+            if e.new:
+                result.spans.setdefault(name, []).append((len(out) + 1, len(out) + len(e.new), e.mod))
             out.extend(e.new)
             pos = e.end
         out.extend(src.lines[pos:])
@@ -511,16 +527,17 @@ def _cache_key(data: bytes, path: str = "") -> str:
     return h.hexdigest()[:24]
 
 
-def compile_cached(name: str, path: str, data: bytes, cache_dir: "Optional[Path]" = None):
-    """``compile`` the patched source (as file ``path``), reusing marshalled code from an earlier run."""
+def compile_cached(name: str, path: str, data: bytes, cache_dir: "Optional[Path]" = None, flags: int = 0):
+    """``compile`` the patched source (as file ``path``), reusing marshalled code from an earlier run. ``flags`` are compiler
+    flags (a ``from __future__`` feature) for a piece of a file that does not carry its own import of it."""
     cache_dir = Path(cache_dir) if cache_dir is not None else _cache_dir()
-    key = _cache_key(data, path)
+    key = _cache_key(data, path + (f"\0{flags}" if flags else ""))
     entry = cache_dir / f"{Path(name).stem}-{key}.bin"
     try:
         return marshal.loads(entry.read_bytes())
     except (OSError, ValueError, EOFError, TypeError):
         pass
-    code = compile(data[len(_BOM):] if data.startswith(_BOM) else data, path, "exec", dont_inherit=True)
+    code = compile(data[len(_BOM):] if data.startswith(_BOM) else data, path, "exec", flags=flags, dont_inherit=True)
     try:
         cache_dir.mkdir(parents=True, exist_ok=True)
         tmp = entry.with_suffix(f".{os.getpid()}.tmp")
@@ -591,16 +608,48 @@ class Installed:
     finder: "Optional[_Finder]" = None
     mods: "list[Mod]" = field(default_factory=list)       # every mod folder read, in order (the ESC menu's Mods page)
     switched_off_by_env: bool = False                      # STAR_EMPIRE_NO_MODS: the game runs as shipped
+    safe_mode: bool = False                                # modguard: every mod left off for this start after repeated crashes
+    guard: "Optional[object]" = None                       # modguard.Guard of a real client start (None in the tests)
 
     def run_main(self, name: str, namespace: dict) -> None:
-        """Run a game file as ``__main__`` (how run_client.py starts Client.py), patched when it has mods."""
+        """Run a game file as ``__main__`` (how run_client.py starts Client.py), patched when it has mods.
+
+        With the safety net on (a real client start, see modguard.py) the file runs in two pieces: everything above its
+        ``if __name__ == "__main__":`` block (the game's definitions and the mods' hooks), then, once the mods' wrappers
+        have been checked against the game's functions, the block that starts the game."""
         path = str(self.internal / name)
         data = self.result.sources.get(name)
         if data is None:
             data = (self.internal / name).read_bytes()
         namespace.setdefault("__file__", path)
         _register_lines(path, data)
-        exec(compile_cached(name, path, data, self.cache_dir), namespace)
+        parts = None
+        if self.guard is not None:
+            try:
+                import modguard
+                parts = modguard.split_entry(data)
+            except Exception:
+                LOG.exception("modguard: %s cannot be run in two pieces (it runs in one, unchecked)", name)
+        if parts is None:
+            exec(compile_cached(name, path, data, self.cache_dir), namespace)
+            return
+        head, tail, flags = parts
+        guard, stem = self.guard, Path(name).stem
+        try:
+            exec(compile_cached(f"{stem}_head.py", path, head, self.cache_dir, flags), namespace)
+        except (SystemExit, KeyboardInterrupt, GeneratorExit):
+            raise
+        except BaseException as exc:
+            guard.on_failure(exc, starting=True)               # a mod's hook that fails here: restart without that mod
+            raise
+        guard.after_import([namespace])                        # never raises
+        try:
+            exec(compile_cached(f"{stem}_main.py", path, tail, self.cache_dir, flags), namespace)
+        except (SystemExit, KeyboardInterrupt, GeneratorExit):
+            raise
+        except BaseException as exc:
+            guard.on_failure(exc, starting=False)
+            raise
 
 
 _installed: "Optional[Installed]" = None
@@ -1088,18 +1137,51 @@ def install(mods_dir: "Optional[Path]" = None, internal_dir: "Optional[Path]" = 
     if os.environ.get(ENV_OFF, "").strip() not in ("", "0"):
         _installed = Installed(BuildResult(), internal, cache, mods=mods, switched_off_by_env=True)
         return _installed
+    session = _start_session(mods, internal) if interactive else None
+    if session is not None and session.safe_mode:
+        _installed = Installed(BuildResult(), internal, cache, mods=mods, switched_off_by_env=True, safe_mode=True)
+        _announce(_installed.result, session.notes, safe_mode=True)
+        return _installed
     disabled = [n.strip() for n in os.environ.get(ENV_DISABLE, "").split(",") if n.strip()]
+    if session is not None:
+        disabled += [n for n in session.auto_off if n not in disabled]
     result = build(mods, lambda name: (internal / name).read_bytes(), disabled)
+    if session is not None:                    # switched off after a problem: shown (Mods page, report) as switched off WITH its reason
+        for name, reason in session.auto_off.items():
+            if name in result.skipped:
+                result.skipped.remove(name)
+                result.auto_off[name] = reason
+                result.failed[name] = [f"switched off automatically: {reason}"]
     for name, reasons in result.failed.items():
         for reason in reasons:
             LOG.warning("mod %s switched off: %s", name, reason)
     finder = _Finder(result.sources, internal, cache)
     if result.sources:
         sys.meta_path.insert(0, finder)
-    _installed = Installed(result, internal, cache, finder, mods)
+    guard = None
+    if session is not None:
+        try:
+            import modguard
+            guard = modguard.Guard(session, mods, internal, result.spans)
+        except Exception:
+            LOG.exception("modguard could not start (the game runs without its safety net)")
+    _installed = Installed(result, internal, cache, finder, mods, guard=guard)
     if interactive:
-        _announce(result)
+        _announce(result, session.notes if session is not None else ())
     return _installed
+
+
+def _start_session(mods: "Sequence[Mod]", internal: Path):
+    """What the earlier runs left (modguard.py): the mods switched off after a problem, safe mode. None when the safety net is
+    off (``STAR_EMPIRE_NO_MODGUARD=1``) or cannot start: the game then starts as it always did."""
+    try:
+        import modguard
+        if not modguard.enabled():
+            return None
+        return modguard.start_session(mods, REPO_DIR, internal)
+    except Exception:
+        LOG.exception("modguard could not start (the game runs without its safety net)")
+        return None
 
 
 def uninstall() -> None:
@@ -1113,17 +1195,36 @@ def uninstall() -> None:
     _installed = None
 
 
-def _announce(result: BuildResult) -> None:
+def _announce(result: BuildResult, notes: "Sequence[str]" = (), safe_mode: bool = False) -> None:
+    """Write mods_report.txt and, when something was switched off, say so in a message box. ``notes`` are what modguard
+    switched off since the last start (and why); ``safe_mode`` means every mod is off for this start."""
+    report = result.report()
+    if safe_mode:
+        report = "SAFE MODE: every mod is off for this start\n" + "\n".join(f"    {n}" for n in notes)
+    elif notes:
+        report += "\nswitched off since the last start, to keep the game running:\n" + "\n".join(f"    {n}" for n in notes)
     try:
-        REPORT_FILE.write_text(result.report() + "\n", encoding="utf-8")
+        REPORT_FILE.write_text(report + "\n", encoding="utf-8")
     except OSError:
         pass
-    if result.ok:
+    parts = []
+    patch_failures = [n for n in result.failed if n not in result.auto_off]
+    if patch_failures:
+        parts.append("These mods were switched off because they no longer fit the game's code, or a mod they need is off:\n\n"
+                     + ", ".join(patch_failures))
+    if notes:
+        parts.append(("Safe mode:\n\n" if safe_mode else "Switched off to keep the game running (they come back when the game or the mod changes):\n\n")
+                     + "\n\n".join(notes if safe_mode else [f"- {n}" for n in notes]))
+    if not parts:                               # nothing failed, or only mods the player already knows are off
         return
-    names = ", ".join(result.failed)
-    text = (f"These mods were switched off because the game's code changed under them:\n\n{names}\n\n"
-            f"The game starts without them. Details: {REPORT_FILE}")
-    try:                                        # pythonw has no console, so say it where it cannot be missed
+    text = "\n\n".join(parts) + (f"\n\nThe game starts without them. Details: {REPORT_FILE}" if not safe_mode
+                                  else f"\n\nDetails: {REPORT_FILE}")
+    _message_box(text)
+
+
+def _message_box(text: str) -> None:
+    """pythonw has no console, so say it where it cannot be missed (the tests replace this)."""
+    try:
         import ctypes
         ctypes.windll.user32.MessageBoxW(0, text, "Star Empire mods", 0x30)
     except Exception:                           # not Windows, or no desktop: the report file has it
