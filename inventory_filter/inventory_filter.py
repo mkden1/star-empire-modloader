@@ -994,7 +994,10 @@ def queue(win, frame) -> None:
 
 
 def _view_wrapper(original):
-    def ship_inventory_view(rows, query, collapsed):
+    def ship_inventory_view(rows, query, collapsed, *extra, **named):
+        # Everything after the three arguments we know is passed through untouched: the game gave this
+        # function a fourth one (``open_groups``) in v0.5.89.1 and a wrapper that names its arguments
+        # crashes the whole client on login the next time the game adds one.
         if _enabled() and _specs:
             try:
                 found = _owner_of_rows(rows)
@@ -1005,7 +1008,7 @@ def _view_wrapper(original):
                         rows = filter_ship_rows(rows, spec, wanted_for(win, spec))
             except Exception:
                 _switch_off("ship_inventory_view()")
-        return original(rows, query, collapsed)
+        return original(rows, query, collapsed, *extra, **named)
 
     ship_inventory_view.__wrapped__ = original
     ship_inventory_view.__doc__ = original.__doc__

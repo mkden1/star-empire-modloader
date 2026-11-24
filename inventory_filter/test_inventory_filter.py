@@ -61,6 +61,7 @@ class _Window:
         win._hiv_init_state()
         win._inv_selected_keys = set()
         win._inv_collapsed_sections = set()
+        win._inv_open_groups = set()   # rank groups opened by the player (v0.5.89.1: every ship window shares it)
         win._init_inventory_search()
         win._inv_popup = None
         win._inv_last_click_key = None
@@ -131,6 +132,27 @@ class HookTests(Base):
     def test_install_twice_changes_nothing(self):
         import Client
         self.assertFalse(inf.install(Client.SolarSystemWindow, None, Client.__dict__))
+
+    def test_the_view_wrapper_passes_on_arguments_it_does_not_know(self):
+        """v0.5.89.1 gave the view a fourth argument (open_groups); a wrapper naming only three crashed the client on login."""
+        seen = []
+
+        def original(rows, query, collapsed, open_groups=frozenset(), **named):
+            seen.append((open_groups, named))
+            return "view"
+
+        wrapped = inf._view_wrapper(original)
+        self.assertEqual(wrapped([], "", set(), frozenset({"g"})), "view")
+        self.assertEqual(wrapped([], "", set(), open_groups=frozenset({"g"}), later=1), "view")
+        self.assertEqual(seen, [(frozenset({"g"}), {}), (frozenset({"g"}), {"later": 1})])
+
+    def test_the_real_view_takes_the_games_own_call_shape(self):
+        """The two real callers (Client's frame loop, hangar_inventory) pass the open rank groups as a fourth argument."""
+        rows = self.win._inv_rows_cache
+        view = self.Client.ship_inventory_view(rows, "", set(), frozenset())
+        self.assertEqual(len(view.rows), len(rows))
+        view = hangar_inventory.ship_inventory_view(rows, "", set(), frozenset())
+        self.assertEqual(len(view.rows), len(rows))
 
     def test_with_nothing_set_the_view_is_the_games_own(self):
         view = self.player_view()
