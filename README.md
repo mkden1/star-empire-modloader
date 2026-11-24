@@ -75,9 +75,32 @@ client starts and the reason in `mods_report.txt` (repo root), for example
 3. Run the check again, then the suite (`custom_build\python.exe custom_build\run_tests.py`, which compares the
    failures with the dev's own known ones). A dev test that fails with `STAR_EMPIRE_NO_MODS=1` too is not ours.
 
+## When a mod's hooks still apply but no longer fit (the safety net, `_internal/modguard.py`)
+
+The anchor check above only sees patches. A hook that still applies can fail when the game's function changes under it: a
+wrapper that names three arguments where the game now passes four raises before its first line runs (v0.5.89.1 did exactly
+that to `inventory_filter` and the client died right after login). So the loader also, on every real start:
+
+* **checks every wrapper before the window opens.** A function with `__wrapped__` set whose code is a mod's is compared with
+  the function it wraps; one that cannot take every call the game's function takes switches its mod off and restarts the game
+  once (if it cannot restart, the game's own function is put back for that run). So: **always set `__wrapped__`** on a wrapper
+  (the check only sees those; `functools.wraps` does it) and **pass unknown arguments on** (`def wrapper(self, a, *args, **kwargs):
+  ... return original(self, a, *args, **kwargs)`). `check_wrappers` also runs in the suite (`test_modguard.py`), so an update that
+  breaks a wrapper fails a test with the wrapper's name.
+* **catches the crash that ends the game** (an uncaught exception in the world window's thread or the main thread) and writes down
+  which mod it was, when it can tell: the frame that raised is the mod's code or a line the mod's patch added, a call that failed
+  to bind its arguments names a mod's function, or the mod's code called the function that raised. That mod is off from the next
+  start (message box, `mods_report.txt`, the Mods page shows the reason).
+* **safe mode**: two crashes in a row nobody could be blamed for start the game with every mod off, once.
+
+`mods_auto_off.json` (repo root) remembers what is off, with fingerprints of the game and of the mod's own files: it comes back by
+itself when either changes, and deleting the file brings every mod back. `mods_crash.json` holds the last crashes. A native crash
+(no Python traceback) cannot be attributed and is not counted. `STAR_EMPIRE_NO_MODGUARD=1` turns all of this off.
+
 ## Switches
 
 * `STAR_EMPIRE_NO_MODS=1` -- run the game exactly as the dev shipped it ("is this bug mine or the dev's?").
+* `STAR_EMPIRE_NO_MODGUARD=1` -- no safety net (no wrapper check, no crash attribution, no safe mode).
 * `STAR_EMPIRE_DISABLE_MODS=range_rings,galaxy_map` -- turn named mods off.
 * `"enabled": false` in a mod's `mod.json` -- the same, kept.
 

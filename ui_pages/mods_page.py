@@ -55,7 +55,9 @@ def entries(info=None) -> "list[Entry]":
             status = ON if mod.hunks else LIBRARY
         else:                              # the loader was switched off altogether
             status = SKIPPED
-            reasons = ["STAR_EMPIRE_NO_MODS is set: the game runs as the dev shipped it"]
+            reasons = (["safe mode: the game crashed twice in a row and no mod could be blamed, so every mod is off for this start"]
+                       if getattr(info, "safe_mode", False)
+                       else ["STAR_EMPIRE_NO_MODS is set: the game runs as the dev shipped it"])
         if mod.name in modloader.ATTACH_FAILURES and status in (ON, LIBRARY):
             # its patches applied, but its code could not be attached to the game's classes at start-up
             status, reasons = FAILED, [modloader.ATTACH_FAILURES[mod.name]]

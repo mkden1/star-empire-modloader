@@ -73,6 +73,24 @@ class EntriesTests(unittest.TestCase):
         self.assertEqual(entry.status, "skipped")
         self.assertIn("STAR_EMPIRE_NO_MODS", entry.reasons[0])
 
+    def test_in_safe_mode_the_reason_is_the_crashes_not_an_environment_variable(self):
+        info = fake_installed(0)
+        info.mods = [Mod("a", Path("m"), description="d")]
+        info.mods[0].hunks = [hunk()]
+        info.result = BuildResult()
+        info.safe_mode = True
+        (entry,) = mods_page.entries(info)
+        self.assertEqual(entry.status, "skipped")
+        self.assertIn("safe mode", entry.reasons[0])
+        self.assertNotIn("STAR_EMPIRE_NO_MODS", entry.reasons[0])
+
+    def test_a_mod_the_safety_net_switched_off_is_shown_as_switched_off_with_its_reason(self):
+        info = fake_installed(1, failed={"hurt": "switched off automatically: it crashed the game (ValueError: x)"})
+        info.result.auto_off["hurt"] = "it crashed the game (ValueError: x)"
+        by = {e.name: e for e in mods_page.entries(info)}
+        self.assertEqual(by["hurt"].status, "failed")
+        self.assertIn("it crashed the game", by["hurt"].reasons[0])
+
     def test_without_a_loader_there_is_nothing_to_list(self):
         with mock.patch.object(modloader, "installed", return_value=None):
             self.assertEqual(mods_page.entries(), [])
